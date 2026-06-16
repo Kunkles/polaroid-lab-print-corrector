@@ -89,6 +89,16 @@ js/app.js         UI wiring, rendering, exports
 serve.js          minimal static dev server (Node, no deps)
 ```
 
+## Versioning
+
+The version lives in one place — [js/version.js](js/version.js) (`APP_VERSION`) — and is shown in the app header, **printed on every calibration chart**, and baked into export filenames and the `.cube` title. Bump it whenever you change something that affects the correction, then note the version on each print so a result can always be traced back to the exact code that made it.
+
+```
+PATCH (1.0.x) — tweaks that don't change correction output (UI, docs)
+MINOR (1.x.0) — correction / calibration behavior changes
+MAJOR (x.0.0) — a new calibration you re-shoot charts for
+```
+
 ## Status & roadmap
 
 Working: color + B&W correction, predicted-print preview, measured color calibration end-to-end, Lab-exposure simulation.

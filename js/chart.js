@@ -189,5 +189,5 @@ function drawChart(canvas, chart) {
 
   ctx.fillStyle = '#000';
   ctx.font = '22px sans-serif';
-  ctx.fillText(`AI LUT Matching — calibration chart ${chart.id}`, margin, S - 28);
+  ctx.fillText(`${APP_NAME} v${APP_VERSION} — calibration chart ${chart.id}`, margin, S - 28);
 }

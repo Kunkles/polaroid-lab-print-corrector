@@ -291,7 +291,7 @@
     ctx.putImageData(pixels, 0, 0);
 
     canvas.toBlob(
-      (blob) => download(blob, `${state.fileName}_polaroid-ready.png`),
+      (blob) => download(blob, `${state.fileName}_polaroid-ready_v${APP_VERSION}.png`),
       'image/png',
     );
   });
@@ -300,9 +300,9 @@
     const tag = measuredActive() ? 'measured-color' : state.filmType;
     const cube = lutToCube(
       buildLut(currentCorrection()),
-      `Polaroid Lab ${measuredActive() ? 'measured' : 'pre-compensation'} (${tag})`,
+      `${APP_NAME} v${APP_VERSION} — ${measuredActive() ? 'measured' : 'pre-compensation'} (${tag})`,
     );
-    download(cube, `polaroid-lab-${measuredActive() ? 'measured' : 'precomp'}-${tag}.cube`, 'text/plain');
+    download(cube, `polaroid-lab-${measuredActive() ? 'measured' : 'precomp'}-${tag}-v${APP_VERSION}.cube`, 'text/plain');
   });
 
   for (const [btnId, chart] of [
@@ -313,7 +313,10 @@
     document.getElementById(btnId).addEventListener('click', () => {
       const canvas = document.createElement('canvas');
       drawChart(canvas, chart);
-      canvas.toBlob((blob) => download(blob, chart.file), 'image/png');
+      const file = chart.file.replace(/\.png$/, `-v${APP_VERSION}.png`);
+      canvas.toBlob((blob) => download(blob, file), 'image/png');
     });
   }
+
+  document.getElementById('app-version').textContent = 'v' + APP_VERSION;
 })();
