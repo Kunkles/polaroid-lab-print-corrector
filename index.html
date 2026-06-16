@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Polaroid Lab Pre-Compensator</title>
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+<header>
+  <h1>Polaroid Lab Pre-Compensator</h1>
+  <p class="subtitle">Edit photos so they survive the trip through instant film. Phase 1: heuristic profile &middot; Phase 2: calibrated LUT from your own prints.</p>
+</header>
+
+<main>
+  <aside id="controls">
+    <section class="panel">
+      <h2>Photo</h2>
+      <label class="file-drop" id="drop-zone">
+        <input type="file" id="file-input" accept="image/*" />
+        <span>Drop a photo here<br/>or click to browse</span>
+      </label>
+    </section>
+
+    <section class="panel" id="calib-panel" hidden>
+      <h2>Calibration <span class="phase-tag">measured</span></h2>
+      <label class="radio"><input type="checkbox" id="use-measured" /> Use my measured calibration</label>
+      <label class="radio"><input type="checkbox" id="unlock-manual" disabled /> Unlock manual tweaks on top</label>
+      <p class="hint" id="calib-meta"></p>
+    </section>
+
+    <section class="panel">
+      <h2>Film</h2>
+      <label class="radio"><input type="radio" name="film-type" value="color" checked /> Color (i-Type / 600)</label>
+      <label class="radio"><input type="radio" name="film-type" value="bw" /> Black &amp; white</label>
+      <p class="hint">In B&amp;W mode the corrected file is grayscale; temp/tint act like lens color filters (e.g. amber darkens skies).</p>
+    </section>
+
+    <section class="panel">
+      <h2>Predicted print</h2>
+      <div class="slider-row">
+        <label><span>Lab exposure (stops)</span><span class="value" id="lab-expo-val">0.0</span></label>
+        <input type="range" id="lab-expo" min="-2" max="2" step="0.1" value="0" />
+      </div>
+      <p class="hint">Simulates the Lab's auto-exposure in the two predicted-print panels only. The corrected file you actually print is unaffected.</p>
+    </section>
+
+    <section class="panel">
+      <h2>Pre-Compensation</h2>
+      <div id="sliders"></div>
+      <div class="button-row">
+        <button id="btn-reset" class="secondary">Reset to profile</button>
+        <button id="btn-zero" class="secondary">Zero (no correction)</button>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Export</h2>
+      <div class="button-row column">
+        <button id="btn-export-image" disabled>Download corrected photo (PNG)</button>
+        <button id="btn-export-cube" class="secondary">Download correction LUT (.cube)</button>
+      </div>
+      <p class="hint">Send the corrected PNG to your phone and print it with the Polaroid app. The .cube file applies the same correction in Lightroom / Capture One.</p>
+    </section>
+
+    <section class="panel">
+      <h2>Calibration chart <span class="phase-tag">phase 2 prep</span></h2>
+      <p class="hint">Print a chart through the Lab <strong>with the correction zeroed</strong>, photograph the result with your phone, and Phase 2 will fit a true inverse LUT for your device + film batch. Corner squares and the gray strips let the software normalize a casual phone photo. The B&amp;W chart is mostly a fine gray ramp plus color patches to measure the film's spectral response.</p>
+      <div class="button-row column">
+        <button id="btn-export-chart-color" class="secondary">Download color chart 1 (PNG)</button>
+        <button id="btn-export-chart-color2" class="secondary">Download color chart 2 (PNG)</button>
+        <button id="btn-export-chart-bw" class="secondary">Download B&amp;W chart (PNG)</button>
+      </div>
+    </section>
+  </aside>
+
+  <section id="views">
+    <figure class="view-card">
+      <canvas id="canvas-original"></canvas>
+      <figcaption>Original</figcaption>
+    </figure>
+    <figure class="view-card highlight">
+      <canvas id="canvas-corrected"></canvas>
+      <figcaption>Corrected &mdash; print this</figcaption>
+    </figure>
+    <figure class="view-card">
+      <canvas id="canvas-sim-original"></canvas>
+      <figcaption>Predicted print of original</figcaption>
+    </figure>
+    <figure class="view-card">
+      <canvas id="canvas-sim-corrected"></canvas>
+      <figcaption>Predicted print of corrected</figcaption>
+    </figure>
+    <p id="placeholder">Load a photo to begin.</p>
+  </section>
+</main>
+
+<footer>
+  <p id="footer-note">The print simulation is a heuristic model of i-Type/600 film (narrow dynamic range, warm cast, muddy blacks). Turn on a measured calibration to drive the preview from your own scanned prints instead.</p>
+</footer>
+
+<script src="js/lut.js"></script>
+<script src="js/pipeline.js"></script>
+<script src="js/chart.js"></script>
+<script src="js/calibrate.js"></script>
+<script src="js/solve.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

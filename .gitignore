@@ -1,0 +1,18 @@
+# Personal photos, Polaroid scans, and exports — not for a public repo
+*.tif
+*.tiff
+IMG_*.jpg
+IMG_*.jpeg
+*_polaroid-ready.png
+
+# Calibration artifacts derived from personal scans (regenerable, device-specific)
+charts/scan-*.png
+charts/milo-*.png
+charts/all-images.png
+charts/calibration-color.json
+charts/polaroid-lab-measured-color.cube
+
+# Tooling / OS / local config
+node_modules/
+.DS_Store
+.claude/settings.local.json
