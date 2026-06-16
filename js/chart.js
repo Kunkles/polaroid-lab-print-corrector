@@ -137,6 +137,18 @@ function drawChart(canvas, chart) {
   canvas.height = S;
   const ctx = canvas.getContext('2d');
 
+  // Outer white frame, then draw the chart into a centered "safe area" so the
+  // Lab's imperfect phone alignment (small rotation, registration shift, edge
+  // crop) can't clip the fiducials. The scale is UNIFORM, so every fiducial /
+  // strip / patch keeps its relative position and fiducial-based extraction
+  // (CHART_GEOM + homography) is unaffected.
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(0, 0, S, S);
+  const safe = 0.74; // chart occupies 74% of the frame, centered
+  ctx.save();
+  ctx.translate((S * (1 - safe)) / 2, (S * (1 - safe)) / 2);
+  ctx.scale(safe, safe);
+
   ctx.fillStyle = '#fff';
   ctx.fillRect(0, 0, S, S);
 
@@ -190,4 +202,6 @@ function drawChart(canvas, chart) {
   ctx.fillStyle = '#000';
   ctx.font = '22px sans-serif';
   ctx.fillText(`${APP_NAME} v${APP_VERSION} — calibration chart ${chart.id}`, margin, S - 28);
+
+  ctx.restore();
 }
