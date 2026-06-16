@@ -9,7 +9,8 @@
   const state = {
     params: { ...DEFAULT_PROFILE },
     filmType: 'color',      // 'color' | 'bw'
-    measured: null,         // loaded calibration model, if any
+    measuredColor: null,    // loaded color calibration model, if any
+    measuredBW: null,       // loaded B&W calibration model, if any
     useMeasured: false,
     unlockManual: false,    // let sliders ride on top of the measured calibration
     labExposure: 0,         // simulated Lab AE exposure (stops), preview only
@@ -19,19 +20,24 @@
     renderQueued: false,
   };
 
-  const measuredActive = () => state.useMeasured && state.measured && state.filmType === 'color';
+  // the measured model for the current film type, if loaded and enabled
+  const activeMeasured = () =>
+    state.useMeasured ? (state.filmType === 'bw' ? state.measuredBW : state.measuredColor) : null;
+  const measuredActive = () => !!activeMeasured();
   const slidersLive = () => !measuredActive() || state.unlockManual;
 
-  // correction fn (r,g,b)->[r,g,b].
+  // correction fn (r,g,b)->[r,g,b]. Color and B&W measured models share the
+  // same `.correct` interface (B&W just returns grayscale).
   //  - heuristic mode: the sliders ARE the pre-compensation.
   //  - measured mode: the calibration pre-distorts for the film. With manual
   //    unlock on, the sliders first grade the image to the look you want, then
   //    the measured layer pre-distorts that — so the print lands on your look.
   const currentCorrection = () => {
-    if (!measuredActive()) return makeCorrection(state.params, state.filmType);
-    if (!state.unlockManual) return state.measured.correct;
-    const grade = makeCorrection(state.params, 'color');
-    return (r, g, b) => state.measured.correct(...grade(r, g, b));
+    const m = activeMeasured();
+    if (!m) return makeCorrection(state.params, state.filmType);
+    if (!state.unlockManual) return m.correct;
+    const grade = makeCorrection(state.params, state.filmType);
+    return (r, g, b) => m.correct(...grade(r, g, b));
   };
 
   // Simulate the Lab's auto-exposure: shift the scene up/down in linear light
@@ -43,9 +49,8 @@
   // forward "predicted print" fn. Measured mode renders in real-scan
   // appearance (predictPrintRaw); heuristic film models already look raw.
   const currentFilmSim = () => {
-    const film = measuredActive()
-      ? (r, g, b) => state.measured.predictPrintRaw(r, g, b)
-      : state.filmType === 'bw' ? filmSimBW : filmSim;
+    const m = activeMeasured();
+    const film = m ? m.predictPrintRaw : (state.filmType === 'bw' ? filmSimBW : filmSim);
     return (r, g, b) => film(labExpose(r), labExpose(g), labExpose(b));
   };
 
@@ -126,7 +131,6 @@
   for (const radio of document.querySelectorAll('input[name="film-type"]')) {
     radio.addEventListener('change', () => {
       state.filmType = radio.value;
-      document.getElementById('use-measured').disabled = state.filmType !== 'color';
       syncMeasuredUI();
       refreshPreviews();
     });
@@ -148,14 +152,32 @@
   const unlockEl = document.getElementById('unlock-manual');
   const footerNote = document.getElementById('footer-note');
   const heuristicNote = footerNote.textContent;
+  const calibMetaText = { color: '', bw: '' };
+
+  function hasCalibration(filmType) {
+    return !!(filmType === 'bw' ? state.measuredBW : state.measuredColor);
+  }
 
   function syncMeasuredUI() {
+    const has = hasCalibration(state.filmType);
+    useMeasuredEl.disabled = !has;
+    if (!has && state.useMeasured) {
+      state.useMeasured = false;
+      useMeasuredEl.checked = false;
+    }
     unlockEl.disabled = !measuredActive();
     updateSliderEnabled();
+
+    document.getElementById('calib-meta').textContent = has
+      ? `${state.filmType === 'bw' ? 'B&W' : 'Color'}: ${calibMetaText[state.filmType]}`
+      : `No measured calibration for ${state.filmType === 'bw' ? 'B&W' : 'color'} yet — print and scan its chart to build one.`;
+
     footerNote.textContent = measuredActive()
       ? (state.unlockManual
           ? 'Measured calibration with manual tweaks on top: the sliders grade your image, then your film’s measured response pre-distorts it so the print lands on that look.'
-          : 'Preview driven by your measured film response (per-channel). Tones round-trip closely; very saturated colors are approximate until a denser calibration. Deep shadows below the film’s floor can’t be recovered.')
+          : state.filmType === 'bw'
+            ? 'Preview driven by your measured B&W film response (tone curve + spectral weights). Deep shadows below the film’s floor can’t be recovered.'
+            : 'Preview driven by your measured color film response (per-channel). Saturated colors are approximate until a denser calibration. Deep shadows below the film’s floor can’t be recovered.')
       : heuristicNote;
   }
 
@@ -173,18 +195,22 @@
     refreshPreviews();
   });
 
-  fetch('charts/calibration-color.json')
-    .then((r) => (r.ok ? r.json() : null))
-    .then((calib) => {
-      if (!calib) return;
-      state.measured = loadCalibration(calib);
-      const m = calib.meta || {};
-      document.getElementById('calib-meta').textContent =
-        `Fitted from ${m.samples || '?'} patches (${m.source || 'scans'}, ${m.date || ''}). ` +
-        `Replaces the heuristic with your film's measured response.`;
-      document.getElementById('calib-panel').hidden = false;
-    })
-    .catch(() => {});
+  function loadCalib(url, type, builder) {
+    return fetch(url)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((calib) => {
+        if (!calib) return;
+        if (type === 'bw') state.measuredBW = builder(calib);
+        else state.measuredColor = builder(calib);
+        const m = calib.meta || {};
+        calibMetaText[type] = `fitted from ${m.samples || '?'} patches (${m.source || 'scans'}, ${m.date || ''}).`;
+        document.getElementById('calib-panel').hidden = false;
+        syncMeasuredUI();
+      })
+      .catch(() => {});
+  }
+  loadCalib('charts/calibration-color.json', 'color', loadCalibration);
+  loadCalib('charts/calibration-bw.json', 'bw', loadBWCalibration);
 
   // --- Image loading -------------------------------------------------------
 
@@ -297,7 +323,7 @@
   });
 
   document.getElementById('btn-export-cube').addEventListener('click', () => {
-    const tag = measuredActive() ? 'measured-color' : state.filmType;
+    const tag = measuredActive() ? `measured-${state.filmType}` : state.filmType;
     const cube = lutToCube(
       buildLut(currentCorrection()),
       `${APP_NAME} v${APP_VERSION} — ${measuredActive() ? 'measured' : 'pre-compensation'} (${tag})`,

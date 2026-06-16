@@ -10,5 +10,5 @@
 
    It is shown in the app header, printed on the calibration charts, and baked
    into export filenames and the .cube title. */
-const APP_VERSION = '1.1.0';
+const APP_VERSION = '1.2.0';
 const APP_NAME = 'Polaroid Lab Print Corrector';

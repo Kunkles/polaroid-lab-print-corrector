@@ -101,12 +101,11 @@ MAJOR (x.0.0) — a new calibration you re-shoot charts for
 
 ## Status & roadmap
 
-Working: color + B&W correction, predicted-print preview, measured color calibration end-to-end, Lab-exposure simulation.
+Working: color + B&W correction, predicted-print preview, **measured calibration end-to-end for both color and B&W** (B&W fits a tone curve plus the film's spectral weights), Lab-exposure simulation.
 
 Next:
 - Constant-gray-surround chart to hold the auto-exposure steady across calibration frames.
 - 3D scattered-data interpolation for accurate saturated-color correction (the per-channel model handles tone and cast well, vivid colors approximately).
-- B&W calibration through the same pipeline.
 
 ## License
 

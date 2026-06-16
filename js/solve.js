@@ -181,6 +181,80 @@ function loadCalibration(calib) {
   return { correct, predictPrint, predictPrintRaw, anchors: A, fwd, inv, chroma: M };
 }
 
+// --- black & white -----------------------------------------------------------
+
+const grayAvg = (p) => (p[0] + p[1] + p[2]) / 3;
+
+/* Fit a B&W calibration: a single tone curve from the 25-step gray ramp
+   (first 25 patches of BW_CHART), plus the film's spectral weights from all
+   patches (how much R/G/B each contribute to the printed gray). The film
+   converts colour to gray as w·rgb, then applies the tone curve. */
+function solveBWCalibration(pairs) {
+  const tone = [];
+  for (let i = 0; i < 25; i++) tone.push({ s: pairs[i].input[0], p: grayAvg(pairs[i].printed) });
+  const fwd = fitForward(tone);
+  const inv = invertForward(fwd);
+
+  // inv(printedGray) = w·input  →  least-squares for the weights
+  const AtA = [[0, 0, 0], [0, 0, 0], [0, 0, 0]], Atb = [0, 0, 0];
+  for (const { input, printed } of pairs) {
+    const y = inv(grayAvg(printed));
+    for (let r = 0; r < 3; r++) {
+      for (let c = 0; c < 3; c++) AtA[r][c] += input[r] * input[c];
+      Atb[r] += input[r] * y;
+    }
+  }
+  let w = gauss(AtA.map((r) => [...r]), Atb);
+  const s = w[0] + w[1] + w[2] || 1; // normalize so a neutral gray passes through
+  w = w.map((v) => v / s);
+  return { fwd, inv, weights: w };
+}
+
+function exportBWCalibration(model, meta = {}, anchors = null) {
+  return {
+    version: 1,
+    type: 'bw',
+    meta,
+    nodes: model.fwd.nodes,
+    toneGrid: Array.from(model.fwd.grid).map((v) => +v.toFixed(5)),
+    weights: model.weights.map((v) => +v.toFixed(5)),
+    rawAnchors: anchors,
+  };
+}
+
+/* Same interface as loadCalibration (correct / predictPrintRaw) so the app can
+   use a B&W model interchangeably. Output is grayscale. */
+function loadBWCalibration(calib) {
+  const grid = Float64Array.from(calib.toneGrid);
+  const fwd = {
+    eval: (s) => {
+      const x = clamp01(s) * (calib.nodes - 1);
+      const i = Math.min(calib.nodes - 2, x | 0);
+      return grid[i] + (grid[i + 1] - grid[i]) * (x - i);
+    },
+    grid, nodes: calib.nodes,
+  };
+  const inv = invertForward(fwd);
+  const w = calib.weights;
+  const A = calib.rawAnchors;
+  const gray = (r, g, b) => clamp01(w[0] * r + w[1] * g + w[2] * b);
+
+  // pre-distort: send the gray that, after the film's tone curve, prints the
+  // film-natural (spectral) gray of the scene without the crush
+  const correct = (r, g, b) => {
+    const s = clamp01(inv(gray(r, g, b)));
+    return [s, s, s];
+  };
+  const predictPrint = (r, g, b) => {
+    const p = fwd.eval(gray(r, g, b));
+    return [p, p, p];
+  };
+  const predictPrintRaw = A
+    ? (r, g, b) => unNormalizeColor(predictPrint(r, g, b), A)
+    : predictPrint;
+  return { correct, predictPrint, predictPrintRaw, anchors: A, weights: w, fwd, inv, type: 'bw' };
+}
+
 /* Honest validation: fit on `train` pairs, predict the printed color of every
    `test` patch from its known input, and report error vs the measured print.
    Cross-chart (train v1 / test v2) also exercises the per-frame AE difference. */
