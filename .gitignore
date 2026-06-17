@@ -8,10 +8,13 @@
 IMG_*
 FullSizeRender*
 
-# charts/ holds local scans + calibration artifacts. Track ONLY the generated
-# sample charts; everything else stays local regardless of name/case.
+# charts/ holds local scans + calibration artifacts. Track the generated
+# sample charts and the anonymized sample calibrations; everything else
+# (scans, analysis images) stays local regardless of name/case.
 charts/*
 !charts/calibration-chart-*.png
+!charts/calibration-color.json
+!charts/calibration-bw.json
 
 # Tooling / OS / local config
 node_modules/
