@@ -26,6 +26,10 @@
   const measuredActive = () => !!activeMeasured();
   const slidersLive = () => !measuredActive() || state.unlockManual;
 
+  // identifies what produced an export, so prints are traceable
+  const correctionMode = () =>
+    measuredActive() ? `measured-${state.filmType}` : `heuristic-${state.filmType}`;
+
   // correction fn (r,g,b)->[r,g,b]. Color and B&W measured models share the
   // same `.correct` interface (B&W just returns grayscale).
   //  - heuristic mode: the sliders ARE the pre-compensation.
@@ -167,6 +171,7 @@
     }
     unlockEl.disabled = !measuredActive();
     updateSliderEnabled();
+    document.getElementById('export-mode').textContent = correctionMode();
 
     document.getElementById('calib-meta').textContent = has
       ? `${state.filmType === 'bw' ? 'B&W' : 'Color'}: ${calibMetaText[state.filmType]}`
@@ -349,18 +354,15 @@
     ctx.putImageData(pixels, 0, 0);
 
     canvas.toBlob(
-      (blob) => download(blob, `${state.fileName}_polaroid-ready_v${APP_VERSION}.png`),
+      (blob) => download(blob, `${state.fileName}_${correctionMode()}_v${APP_VERSION}.png`),
       'image/png',
     );
   });
 
   document.getElementById('btn-export-cube').addEventListener('click', () => {
-    const tag = measuredActive() ? `measured-${state.filmType}` : state.filmType;
-    const cube = lutToCube(
-      buildLut(currentCorrection()),
-      `${APP_NAME} v${APP_VERSION} — ${measuredActive() ? 'measured' : 'pre-compensation'} (${tag})`,
-    );
-    download(cube, `polaroid-lab-${measuredActive() ? 'measured' : 'precomp'}-${tag}-v${APP_VERSION}.cube`, 'text/plain');
+    const mode = correctionMode();
+    const cube = lutToCube(buildLut(currentCorrection()), `${APP_NAME} v${APP_VERSION} — ${mode}`);
+    download(cube, `polaroid-lab-${mode}-v${APP_VERSION}.cube`, 'text/plain');
   });
 
   for (const [btnId, chart] of [
