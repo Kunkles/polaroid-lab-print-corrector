@@ -26,11 +26,13 @@
       </label>
     </section>
 
-    <section class="panel" id="calib-panel" hidden>
+    <section class="panel" id="calib-panel">
       <h2>Calibration <span class="phase-tag">measured</span></h2>
-      <label class="radio"><input type="checkbox" id="use-measured" /> Use my measured calibration</label>
+      <label class="radio"><input type="checkbox" id="use-measured" disabled /> Use my measured calibration</label>
       <label class="radio"><input type="checkbox" id="unlock-manual" disabled /> Unlock manual tweaks on top</label>
       <p class="hint" id="calib-meta"></p>
+      <button id="btn-load-calib" class="secondary">Load calibration file…</button>
+      <input type="file" id="calib-file" accept=".json,application/json" hidden />
     </section>
 
     <section class="panel">

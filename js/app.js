@@ -170,7 +170,7 @@
 
     document.getElementById('calib-meta').textContent = has
       ? `${state.filmType === 'bw' ? 'B&W' : 'Color'}: ${calibMetaText[state.filmType]}`
-      : `No measured calibration for ${state.filmType === 'bw' ? 'B&W' : 'color'} yet — print and scan its chart to build one.`;
+      : `No measured calibration for ${state.filmType === 'bw' ? 'B&W' : 'color'} yet — load a calibration file below, or print and scan its chart to build one.`;
 
     footerNote.textContent = measuredActive()
       ? (state.unlockManual
@@ -211,6 +211,38 @@
   }
   loadCalib('charts/calibration-color.json', 'color', loadCalibration);
   loadCalib('charts/calibration-bw.json', 'bw', loadBWCalibration);
+
+  // Load a calibration the user keeps on their device (works on any copy of
+  // the app, including the hosted site, where the auto-loaded files aren't shipped).
+  const calibFileEl = document.getElementById('calib-file');
+  document.getElementById('btn-load-calib').addEventListener('click', () => calibFileEl.click());
+  calibFileEl.addEventListener('change', () => {
+    const file = calibFileEl.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      let calib;
+      try { calib = JSON.parse(reader.result); } catch { alert('That file is not valid JSON.'); return; }
+      const type = calib.type === 'bw' || calib.toneGrid ? 'bw' : 'color';
+      try {
+        if (type === 'bw') state.measuredBW = loadBWCalibration(calib);
+        else state.measuredColor = loadCalibration(calib);
+      } catch { alert('That JSON does not look like a calibration file.'); return; }
+      const m = calib.meta || {};
+      calibMetaText[type] = `fitted from ${m.samples || '?'} patches (${m.source || file.name}, ${m.date || ''}).`;
+      // switch to that film type and turn it on so it works immediately
+      state.filmType = type;
+      document.querySelector(`input[name="film-type"][value="${type}"]`).checked = true;
+      state.useMeasured = true;
+      useMeasuredEl.checked = true;
+      syncMeasuredUI();
+      refreshPreviews();
+    };
+    reader.readAsText(file);
+    calibFileEl.value = '';
+  });
+
+  syncMeasuredUI(); // set the panel's initial state (disabled until a calib loads)
 
   // --- Image loading -------------------------------------------------------
 
