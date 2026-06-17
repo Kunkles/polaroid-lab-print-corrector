@@ -13,6 +13,7 @@
     measuredBW: null,       // loaded B&W calibration model, if any
     useMeasured: false,
     unlockManual: false,    // let sliders ride on top of the measured calibration
+    strength: 1,            // 0..1 blend between no correction and full correction
     labExposure: 0,         // simulated Lab AE exposure (stops), preview only
     fullImage: null,        // HTMLImageElement at native resolution
     fileName: 'photo',
@@ -27,8 +28,10 @@
   const slidersLive = () => !measuredActive() || state.unlockManual;
 
   // identifies what produced an export, so prints are traceable
-  const correctionMode = () =>
-    measuredActive() ? `measured-${state.filmType}` : `heuristic-${state.filmType}`;
+  const correctionMode = () => {
+    const base = measuredActive() ? `measured-${state.filmType}` : `heuristic-${state.filmType}`;
+    return state.strength >= 0.999 ? base : `${base}-${Math.round(state.strength * 100)}pct`;
+  };
 
   // correction fn (r,g,b)->[r,g,b]. Color and B&W measured models share the
   // same `.correct` interface (B&W just returns grayscale).
@@ -36,12 +39,28 @@
   //  - measured mode: the calibration pre-distorts for the film. With manual
   //    unlock on, the sliders first grade the image to the look you want, then
   //    the measured layer pre-distorts that — so the print lands on your look.
-  const currentCorrection = () => {
+  const baseCorrection = () => {
     const m = activeMeasured();
     if (!m) return makeCorrection(state.params, state.filmType);
     if (!state.unlockManual) return m.correct;
     const grade = makeCorrection(state.params, state.filmType);
     return (r, g, b) => m.correct(...grade(r, g, b));
+  };
+
+  // Apply the strength blend: lerp between the original (no correction) and the
+  // full correction. In B&W the blended result is re-neutralized so it stays
+  // grayscale at partial strength.
+  const currentCorrection = () => {
+    const base = baseCorrection();
+    const s = state.strength;
+    if (s >= 0.999) return base;
+    const bw = state.filmType === 'bw';
+    return (r, g, b) => {
+      const c = base(r, g, b);
+      let o0 = r + (c[0] - r) * s, o1 = g + (c[1] - g) * s, o2 = b + (c[2] - b) * s;
+      if (bw) { const y = 0.2126 * o0 + 0.7152 * o1 + 0.0722 * o2; o0 = o1 = o2 = y; }
+      return [o0, o1, o2];
+    };
   };
 
   // Simulate the Lab's auto-exposure: shift the scene up/down in linear light
@@ -148,6 +167,17 @@
     state.labExposure = Number(labExpoEl.value);
     labExpoVal.textContent = (state.labExposure >= 0 ? '+' : '') + state.labExposure.toFixed(1);
     refreshPreviews();
+  });
+
+  // --- Correction strength -------------------------------------------------
+
+  const strengthEl = document.getElementById('strength');
+  const strengthVal = document.getElementById('strength-val');
+  strengthEl.addEventListener('input', () => {
+    state.strength = Number(strengthEl.value) / 100;
+    strengthVal.textContent = `${strengthEl.value}%`;
+    document.getElementById('export-mode').textContent = correctionMode();
+    queueRender();
   });
 
   // --- Measured calibration ------------------------------------------------

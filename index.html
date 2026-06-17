@@ -43,6 +43,15 @@
     </section>
 
     <section class="panel">
+      <h2>Correction strength</h2>
+      <div class="slider-row">
+        <label><span>Amount</span><span class="value" id="strength-val">100%</span></label>
+        <input type="range" id="strength" min="0" max="100" step="5" value="100" />
+      </div>
+      <p class="hint">Blends from no correction (0%) to the full correction (100%). Works in both heuristic and measured modes — pull it back if the full correction is stronger than you like.</p>
+    </section>
+
+    <section class="panel">
       <h2>Predicted print</h2>
       <div class="slider-row">
         <label><span>Lab exposure (stops)</span><span class="value" id="lab-expo-val">0.0</span></label>
