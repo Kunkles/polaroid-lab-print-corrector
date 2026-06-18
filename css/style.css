@@ -173,7 +173,6 @@ button:not(:disabled):hover { filter: brightness(1.12); }
 }
 
 #views {
-  order: -1; /* render above the controls regardless of DOM order */
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 0.8rem;
@@ -182,6 +181,14 @@ button:not(:disabled):hover { filter: brightness(1.12); }
   z-index: 5;
   background: var(--bg);
   padding-bottom: 0.8rem;
+}
+
+/* Pre-Compensation sliders sit in a compact multi-column grid so the panel
+   stays a short band directly under the previews. */
+#sliders {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  column-gap: 1.4rem;
 }
 
 #views.empty .view-card { display: none; }

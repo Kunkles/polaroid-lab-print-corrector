@@ -17,69 +17,6 @@
 </header>
 
 <main>
-  <aside id="controls">
-    <section class="panel">
-      <h2>Photo</h2>
-      <label class="file-drop" id="drop-zone">
-        <input type="file" id="file-input" accept="image/*" />
-        <span>Drop a photo here<br/>or click to browse</span>
-      </label>
-    </section>
-
-    <section class="panel" id="calib-panel">
-      <h2>Calibration <span class="phase-tag">measured</span></h2>
-      <label class="radio"><input type="checkbox" id="use-measured" disabled /> Use my measured calibration</label>
-      <label class="radio"><input type="checkbox" id="unlock-manual" disabled /> Unlock manual tweaks on top</label>
-      <p class="hint" id="calib-meta"></p>
-      <button id="btn-load-calib" class="secondary">Load calibration file…</button>
-      <input type="file" id="calib-file" accept=".json,application/json" hidden />
-    </section>
-
-    <section class="panel">
-      <h2>Film</h2>
-      <label class="radio"><input type="radio" name="film-type" value="color" checked /> Color (i-Type / 600)</label>
-      <label class="radio"><input type="radio" name="film-type" value="bw" /> Black &amp; white</label>
-      <p class="hint">In B&amp;W mode the corrected file is grayscale; temp/tint act like lens color filters (e.g. amber darkens skies).</p>
-    </section>
-
-    <section class="panel">
-      <h2>Correction strength</h2>
-      <div class="slider-row">
-        <label><span>Amount</span><span class="value" id="strength-val">100%</span></label>
-        <input type="range" id="strength" min="0" max="100" step="5" value="100" />
-      </div>
-      <p class="hint">Blends from no correction (0%) to the full correction (100%). Works in both heuristic and measured modes — pull it back if the full correction is stronger than you like.</p>
-    </section>
-
-    <section class="panel">
-      <h2>Predicted print</h2>
-      <div class="slider-row">
-        <label><span>Lab exposure (stops)</span><span class="value" id="lab-expo-val">0.0</span></label>
-        <input type="range" id="lab-expo" min="-2" max="2" step="0.1" value="0" />
-      </div>
-      <p class="hint">Simulates the Lab's auto-exposure in the two predicted-print panels only. The corrected file you actually print is unaffected.</p>
-    </section>
-
-    <section class="panel">
-      <h2>Pre-Compensation</h2>
-      <div id="sliders"></div>
-      <div class="button-row">
-        <button id="btn-reset" class="secondary">Reset to profile</button>
-        <button id="btn-zero" class="secondary">Zero (no correction)</button>
-      </div>
-    </section>
-
-    <section class="panel">
-      <h2>Export <span class="version" id="export-mode"></span></h2>
-      <div class="button-row column">
-        <button id="btn-export-image" disabled>Download corrected photo (PNG)</button>
-        <button id="btn-export-cube" class="secondary">Download correction LUT (.cube)</button>
-      </div>
-      <p class="hint">The active correction mode is stamped into every export filename, so you always know what made a print. Send the corrected PNG to your phone and print it with the Polaroid app.</p>
-    </section>
-
-  </aside>
-
   <section id="views">
     <figure class="view-card">
       <canvas id="canvas-original"></canvas>
@@ -99,6 +36,71 @@
     </figure>
     <p id="placeholder">Load a photo to begin.</p>
   </section>
+
+  <section id="primary">
+    <section class="panel">
+      <h2>Pre-Compensation</h2>
+      <div id="sliders"></div>
+      <div class="button-row">
+        <button id="btn-reset" class="secondary">Reset to profile</button>
+        <button id="btn-zero" class="secondary">Zero (no correction)</button>
+      </div>
+    </section>
+  </section>
+
+  <aside id="controls">
+    <section class="panel">
+      <h2>Photo</h2>
+      <label class="file-drop" id="drop-zone">
+        <input type="file" id="file-input" accept="image/*" />
+        <span>Drop a photo here<br/>or click to browse</span>
+      </label>
+    </section>
+
+    <section class="panel">
+      <h2>Correction strength</h2>
+      <div class="slider-row">
+        <label><span>Amount</span><span class="value" id="strength-val">100%</span></label>
+        <input type="range" id="strength" min="0" max="100" step="5" value="100" />
+      </div>
+      <p class="hint">Blends from no correction (0%) to the full correction (100%). Works in both heuristic and measured modes — pull it back if the full correction is stronger than you like.</p>
+    </section>
+
+    <section class="panel" id="calib-panel">
+      <h2>Calibration <span class="phase-tag">measured</span></h2>
+      <label class="radio"><input type="checkbox" id="use-measured" disabled /> Use my measured calibration</label>
+      <label class="radio"><input type="checkbox" id="unlock-manual" disabled /> Unlock manual tweaks on top</label>
+      <p class="hint" id="calib-meta"></p>
+      <button id="btn-load-calib" class="secondary">Load calibration file…</button>
+      <input type="file" id="calib-file" accept=".json,application/json" hidden />
+    </section>
+
+    <section class="panel">
+      <h2>Film</h2>
+      <label class="radio"><input type="radio" name="film-type" value="color" checked /> Color (i-Type / 600)</label>
+      <label class="radio"><input type="radio" name="film-type" value="bw" /> Black &amp; white</label>
+      <p class="hint">In B&amp;W mode the corrected file is grayscale; temp/tint act like lens color filters (e.g. amber darkens skies).</p>
+    </section>
+
+    <section class="panel">
+      <h2>Predicted print</h2>
+      <div class="slider-row">
+        <label><span>Lab exposure (stops)</span><span class="value" id="lab-expo-val">0.0</span></label>
+        <input type="range" id="lab-expo" min="-2" max="2" step="0.1" value="0" />
+      </div>
+      <p class="hint">Simulates the Lab's auto-exposure in the two predicted-print panels only. The corrected file you actually print is unaffected.</p>
+    </section>
+
+    <section class="panel">
+      <h2>Export <span class="version" id="export-mode"></span></h2>
+      <div class="button-row column">
+        <button id="btn-export-image" disabled>Download corrected photo (PNG)</button>
+        <button id="btn-export-cube" class="secondary">Download correction LUT (.cube)</button>
+      </div>
+      <p class="hint">The active correction mode is stamped into every export filename, so you always know what made a print. Send the corrected PNG to your phone and print it with the Polaroid app.</p>
+    </section>
+
+  </aside>
 </main>
 
 <footer>
