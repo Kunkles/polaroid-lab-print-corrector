@@ -395,18 +395,5 @@
     download(cube, `polaroid-lab-${mode}-v${APP_VERSION}.cube`, 'text/plain');
   });
 
-  for (const [btnId, chart] of [
-    ['btn-export-chart-color', COLOR_CHART],
-    ['btn-export-chart-color2', COLOR_CHART_2],
-    ['btn-export-chart-bw', BW_CHART],
-  ]) {
-    document.getElementById(btnId).addEventListener('click', () => {
-      const canvas = document.createElement('canvas');
-      drawChart(canvas, chart);
-      const file = chart.file.replace(/\.png$/, `-v${APP_VERSION}.png`);
-      canvas.toBlob((blob) => download(blob, file), 'image/png');
-    });
-  }
-
   document.getElementById('app-version').textContent = 'v' + APP_VERSION;
 })();
