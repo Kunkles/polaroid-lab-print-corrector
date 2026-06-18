@@ -53,10 +53,8 @@ main {
 }
 
 #controls {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
-  align-items: start;
-  gap: 0.8rem;
+  columns: 300px 3;
+  column-gap: 0.8rem;
 }
 
 .panel {
@@ -64,6 +62,8 @@ main {
   border: 1px solid var(--panel-edge);
   border-radius: 10px;
   padding: 0.9rem 1rem;
+  margin: 0 0 0.8rem;
+  break-inside: avoid;
 }
 
 .panel h2 {
