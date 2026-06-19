@@ -205,3 +205,126 @@ function drawChart(canvas, chart) {
 
   ctx.restore();
 }
+
+/* =====================================================================
+   Additional refinement test charts. These are printed full-size (not
+   from the app UI). Patch charts keep the same safe-area + fiducial +
+   reference-strip layout as the calibration charts; the vignette field
+   deliberately fills the WHOLE frame so corner falloff can be measured.
+   ===================================================================== */
+
+/* General cols×rows patch chart in the safe area (for the dense colour cube,
+   the extreme-tone chart, and the repeatability chart). */
+function drawGridChart(canvas, chart) {
+  const S = 1200, margin = 70, fid = 56;
+  canvas.width = S;
+  canvas.height = S;
+  const ctx = canvas.getContext('2d');
+
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(0, 0, S, S);
+  const safe = 0.74;
+  ctx.save();
+  ctx.translate((S * (1 - safe)) / 2, (S * (1 - safe)) / 2);
+  ctx.scale(safe, safe);
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(0, 0, S, S);
+
+  ctx.fillStyle = '#000';
+  for (const [x, y] of [
+    [margin, margin], [S - margin - fid, margin],
+    [margin, S - margin - fid], [S - margin - fid, S - margin - fid],
+  ]) ctx.fillRect(x, y, fid, fid);
+
+  const stripY = [margin + fid + 18, S - margin - fid - 18 - 50];
+  const stripX = margin + fid + 18;
+  const stripW = S - 2 * stripX;
+  for (const y of stripY) {
+    ['#000000', '#777777', '#ffffff'].forEach((c, i) => {
+      ctx.fillStyle = c;
+      ctx.fillRect(stripX + (stripW / 3) * i, y, stripW / 3, 50);
+    });
+    ctx.strokeStyle = '#000';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(stripX, y, stripW, 50);
+  }
+
+  const { cols, rows } = chart;
+  const gridTop = stripY[0] + 50 + 18;
+  const gridBottom = stripY[1] - 18;
+  const gridW = S - 2 * margin;
+  const gridH = gridBottom - gridTop;
+  const cell = Math.min(gridW / cols, gridH / rows);
+  const startX = margin + (gridW - cols * cell) / 2;
+  const startY = gridTop + (gridH - rows * cell) / 2;
+  const gap = Math.max(3, cell * 0.08);
+  chart.patches.forEach(([r, g, b], i) => {
+    const col = i % cols, row = (i / cols) | 0;
+    ctx.fillStyle = `rgb(${Math.round(r * 255)}, ${Math.round(g * 255)}, ${Math.round(b * 255)})`;
+    ctx.fillRect(startX + col * cell + gap / 2, startY + row * cell + gap / 2, cell - gap, cell - gap);
+  });
+
+  ctx.fillStyle = '#000';
+  ctx.font = '20px sans-serif';
+  ctx.fillText(`${APP_NAME} v${APP_VERSION} — ${chart.id} (${chart.patches.length} patches)`, margin, S - 28);
+
+  ctx.restore();
+}
+
+/* Full-frame uniform field for measuring lens vignetting. No safe area — fills
+   edge to edge so the falloff into the corners is measurable. Only tiny corner
+   fiducials for registration. */
+function drawFlatField(canvas, chart) {
+  const S = 1200;
+  canvas.width = S;
+  canvas.height = S;
+  const ctx = canvas.getContext('2d');
+
+  const v = Math.round(chart.level * 255);
+  ctx.fillStyle = `rgb(${v}, ${v}, ${v})`;
+  ctx.fillRect(0, 0, S, S);
+
+  const fid = 36, pad = 8;
+  ctx.fillStyle = '#000';
+  for (const [x, y] of [
+    [pad, pad], [S - pad - fid, pad],
+    [pad, S - pad - fid], [S - pad - fid, S - pad - fid],
+  ]) ctx.fillRect(x, y, fid, fid);
+
+  ctx.fillStyle = v > 128 ? '#000' : '#fff';
+  ctx.font = '20px sans-serif';
+  ctx.fillText(`${APP_NAME} v${APP_VERSION} — ${chart.id} (fills frame; measures corner falloff)`, pad + fid + 12, pad + 26);
+}
+
+const TEST_CHARTS = (() => {
+  // 6x6x6 RGB cube, split across two printable charts (108 patches each)
+  const cube = [];
+  const levels = [0, 0.2, 0.4, 0.6, 0.8, 1.0];
+  for (const r of levels) for (const g of levels) for (const b of levels) cube.push([r, g, b]);
+
+  // extreme-tone: dense in the deep shadows and bright highlights
+  const ext = [];
+  for (let i = 0; i <= 10; i++) ext.push([i * 0.02, i * 0.02, i * 0.02]);       // 0.00–0.20 grays
+  for (let i = 0; i <= 10; i++) { const v = 0.8 + i * 0.02; ext.push([v, v, v]); } // 0.80–1.00 grays
+  ext.push([0.3, 0.3, 0.3], [0.5, 0.5, 0.5], [0.7, 0.7, 0.7]);
+  for (const v of [0.05, 0.1, 0.15]) ext.push([v, 0, 0], [0, v, 0], [0, 0, v]);  // deep primaries
+  for (const v of [0.1, 0.15]) ext.push([v, v, 0], [0, v, v], [v, 0, v]);        // deep secondaries
+  ext.push([1, 0.9, 0.9], [0.9, 1, 0.9], [0.9, 0.9, 1]);                          // pale highlight tints
+  ext.push([0.95, 0, 0], [0, 0.95, 0], [0, 0, 0.95]);                             // bright primaries
+  ext.push([0.2, 0.13, 0.10], [0.94, 0.78, 0.67], [0.45, 0.30, 0.22]);           // shadow + skins
+
+  // repeatability: a few large, easy-to-read patches (print this one 3–5×)
+  const rep = [
+    [0, 0, 0], [0.25, 0.25, 0.25], [0.466, 0.466, 0.466], [0.5, 0.5, 0.5], [0.75, 0.75, 0.75], [1, 1, 1],
+    [0.9, 0, 0], [0, 0.7, 0], [0, 0, 0.9], [0, 0.8, 0.8], [0.9, 0, 0.9], [0.9, 0.9, 0],
+    [0.94, 0.78, 0.67], [0.47, 0.65, 0.85], [0.30, 0.45, 0.22], [0.76, 0.65, 0.45],
+  ];
+
+  return {
+    cube1: { id: 'color-cube-1', file: 'test-color-cube-1.png', cols: 12, rows: 9, patches: cube.slice(0, 108) },
+    cube2: { id: 'color-cube-2', file: 'test-color-cube-2.png', cols: 12, rows: 9, patches: cube.slice(108) },
+    extreme: { id: 'extreme-tone', file: 'test-extreme-tone.png', cols: 7, rows: 7, patches: ext },
+    repeat: { id: 'repeatability', file: 'test-repeatability.png', cols: 4, rows: 4, patches: rep },
+    vignette: { id: 'vignette-field', file: 'test-vignette-field.png', level: 0x77 / 255 },
+  };
+})();
