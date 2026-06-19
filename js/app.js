@@ -7,12 +7,12 @@
   const NEUTRAL = { exposure: 0, shadowLift: 0, highlightComp: 0, contrast: 0, saturation: 1, temp: 0, tint: 0 };
 
   const state = {
-    params: { ...DEFAULT_PROFILE },
+    params: { ...NEUTRAL },  // manual tweaks ride on top of the measured calibration
     filmType: 'color',      // 'color' | 'bw'
     measuredColor: null,    // loaded color calibration model, if any
     measuredBW: null,       // loaded B&W calibration model, if any
-    useMeasured: false,
-    unlockManual: false,    // let sliders ride on top of the measured calibration
+    useMeasured: true,      // always use the measured calibration when available
+    unlockManual: true,     // manual tweak sliders are always live
     strength: 1,            // 0..1 blend between no correction and full correction
     labExposure: 0,         // simulated Lab AE exposure (stops), preview only
     fullImage: null,        // HTMLImageElement at native resolution
@@ -132,8 +132,7 @@
     queueRender();
   }
 
-  document.getElementById('btn-reset').addEventListener('click', () => setParams(DEFAULT_PROFILE));
-  document.getElementById('btn-zero').addEventListener('click', () => setParams(NEUTRAL));
+  document.getElementById('btn-reset').addEventListener('click', () => setParams(NEUTRAL));
 
   function updateSliderEnabled() {
     const live = slidersLive();
@@ -154,7 +153,7 @@
   for (const radio of document.querySelectorAll('input[name="film-type"]')) {
     radio.addEventListener('change', () => {
       state.filmType = radio.value;
-      syncMeasuredUI();
+      refreshModeUI();
       refreshPreviews();
     });
   }
@@ -180,55 +179,20 @@
     queueRender();
   });
 
-  // --- Measured calibration ------------------------------------------------
+  // --- Measured calibration (auto-loaded; always on when available) --------
 
-  const useMeasuredEl = document.getElementById('use-measured');
-  const unlockEl = document.getElementById('unlock-manual');
   const footerNote = document.getElementById('footer-note');
   const heuristicNote = footerNote.textContent;
-  const calibMetaText = { color: '', bw: '' };
 
-  function hasCalibration(filmType) {
-    return !!(filmType === 'bw' ? state.measuredBW : state.measuredColor);
-  }
-
-  function syncMeasuredUI() {
-    const has = hasCalibration(state.filmType);
-    useMeasuredEl.disabled = !has;
-    if (!has && state.useMeasured) {
-      state.useMeasured = false;
-      useMeasuredEl.checked = false;
-    }
-    unlockEl.disabled = !measuredActive();
+  function refreshModeUI() {
     updateSliderEnabled();
     document.getElementById('export-mode').textContent = correctionMode();
-
-    document.getElementById('calib-meta').textContent = has
-      ? `${state.filmType === 'bw' ? 'B&W' : 'Color'}: ${calibMetaText[state.filmType]}`
-      : `No measured calibration for ${state.filmType === 'bw' ? 'B&W' : 'color'} yet — load a calibration file below, or print and scan its chart to build one.`;
-
     footerNote.textContent = measuredActive()
-      ? (state.unlockManual
-          ? 'Measured calibration with manual tweaks on top: the sliders grade your image, then your film’s measured response pre-distorts it so the print lands on that look.'
-          : state.filmType === 'bw'
-            ? 'Preview driven by your measured B&W film response (tone curve + spectral weights). Deep shadows below the film’s floor can’t be recovered.'
-            : 'Preview driven by your measured color film response (per-channel). Saturated colors are approximate until a denser calibration. Deep shadows below the film’s floor can’t be recovered.')
+      ? (state.filmType === 'bw'
+          ? 'Driven by the measured B&W film response (tone curve + spectral weights), with your manual tweaks on top. Deep shadows below the film’s floor can’t be recovered.'
+          : 'Driven by the measured color film response (per-channel), with your manual tweaks on top. Saturated colors are approximate; deep shadows below the film’s floor can’t be recovered.')
       : heuristicNote;
   }
-
-  useMeasuredEl.addEventListener('change', () => {
-    state.useMeasured = useMeasuredEl.checked;
-    syncMeasuredUI();
-    refreshPreviews();
-  });
-
-  unlockEl.addEventListener('change', () => {
-    state.unlockManual = unlockEl.checked;
-    // start tweaks from neutral so enabling them doesn't change the measured result
-    if (state.unlockManual) setParams(NEUTRAL);
-    syncMeasuredUI();
-    refreshPreviews();
-  });
 
   function loadCalib(url, type, builder) {
     return fetch(url)
@@ -237,47 +201,15 @@
         if (!calib) return;
         if (type === 'bw') state.measuredBW = builder(calib);
         else state.measuredColor = builder(calib);
-        const m = calib.meta || {};
-        calibMetaText[type] = `fitted from ${m.samples || '?'} patches (${m.source || 'scans'}, ${m.date || ''}).`;
-        document.getElementById('calib-panel').hidden = false;
-        syncMeasuredUI();
+        refreshModeUI();
+        refreshPreviews();
       })
       .catch(() => {});
   }
   loadCalib('charts/calibration-color.json', 'color', loadCalibration);
   loadCalib('charts/calibration-bw.json', 'bw', loadBWCalibration);
 
-  // Load a calibration the user keeps on their device (works on any copy of
-  // the app, including the hosted site, where the auto-loaded files aren't shipped).
-  const calibFileEl = document.getElementById('calib-file');
-  document.getElementById('btn-load-calib').addEventListener('click', () => calibFileEl.click());
-  calibFileEl.addEventListener('change', () => {
-    const file = calibFileEl.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      let calib;
-      try { calib = JSON.parse(reader.result); } catch { alert('That file is not valid JSON.'); return; }
-      const type = calib.type === 'bw' || calib.toneGrid ? 'bw' : 'color';
-      try {
-        if (type === 'bw') state.measuredBW = loadBWCalibration(calib);
-        else state.measuredColor = loadCalibration(calib);
-      } catch { alert('That JSON does not look like a calibration file.'); return; }
-      const m = calib.meta || {};
-      calibMetaText[type] = `fitted from ${m.samples || '?'} patches (${m.source || file.name}, ${m.date || ''}).`;
-      // switch to that film type and turn it on so it works immediately
-      state.filmType = type;
-      document.querySelector(`input[name="film-type"][value="${type}"]`).checked = true;
-      state.useMeasured = true;
-      useMeasuredEl.checked = true;
-      syncMeasuredUI();
-      refreshPreviews();
-    };
-    reader.readAsText(file);
-    calibFileEl.value = '';
-  });
-
-  syncMeasuredUI(); // set the panel's initial state (disabled until a calib loads)
+  refreshModeUI();
 
   // --- Image loading -------------------------------------------------------
 
@@ -396,4 +328,10 @@
   });
 
   document.getElementById('app-version').textContent = 'v' + APP_VERSION;
+
+  // Authorship signature (also see the comment in index.html and the LICENSE).
+  console.log(
+    `%c${APP_NAME}%c v${APP_VERSION}\n© 2026 ${APP_AUTHOR} · ${APP_REPO}`,
+    'font-weight:bold', 'color:inherit',
+  );
 })();

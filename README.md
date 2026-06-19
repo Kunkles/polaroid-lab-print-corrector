@@ -1,5 +1,7 @@
 # Polaroid Lab Print Corrector
 
+### ▶ [Open the live editor](https://kunkles.github.io/polaroid-lab-print-corrector/) — runs in your browser, nothing to install.
+
 A small, dependency-free web app that **pre-compensates digital photos so they print correctly on the [Polaroid Lab](https://www.polaroid.com/en_us/products/polaroid-lab)** instant printer. If your Polaroid Lab prints come out with **crushed shadows, a muddy green/warm color cast, blown highlights, or just look too dark**, this tool distorts the image in the opposite direction of what the film does — so the print lands where you want it.
 
 It works for **i-Type / 600 instant film** (color and black & white), and it can either export a corrected image to print from your phone, or a `.cube` 3D LUT you can apply in Lightroom / Capture One / Photoshop.

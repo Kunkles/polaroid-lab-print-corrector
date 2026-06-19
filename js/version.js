@@ -12,3 +12,5 @@
    into export filenames and the .cube title. */
 const APP_VERSION = '1.2.0';
 const APP_NAME = 'Polaroid Lab Print Corrector';
+const APP_AUTHOR = 'Ryan Kunkleman';
+const APP_REPO = 'https://github.com/Kunkles/polaroid-lab-print-corrector';

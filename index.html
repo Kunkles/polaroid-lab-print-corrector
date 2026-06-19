@@ -1,7 +1,14 @@
 <!DOCTYPE html>
+<!--
+  Polaroid Lab Print Corrector
+  Copyright (c) 2026 Ryan Kunkleman — https://github.com/Kunkles/polaroid-lab-print-corrector
+  Original work by Ryan Kunkleman. MIT licensed: keep this notice if you reuse it.
+-->
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
+<meta name="author" content="Ryan Kunkleman" />
+<link rel="author" href="https://github.com/Kunkles" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Polaroid Lab Print Corrector — fix crushed shadows, color cast &amp; exposure</title>
 <meta name="description" content="Free web app that pre-compensates photos so they print correctly on the Polaroid Lab instant printer. Fix crushed shadows, color cast, and exposure for i-Type / 600 color and B&amp;W film. Measured calibration and .cube LUT export." />
@@ -42,8 +49,7 @@
       <h2>Pre-Compensation</h2>
       <div id="sliders"></div>
       <div class="button-row">
-        <button id="btn-reset" class="secondary">Reset to profile</button>
-        <button id="btn-zero" class="secondary">Zero (no correction)</button>
+        <button id="btn-reset" class="secondary">Reset tweaks</button>
       </div>
     </section>
   </section>
@@ -64,15 +70,6 @@
         <input type="range" id="strength" min="0" max="100" step="5" value="100" />
       </div>
       <p class="hint">Blends from no correction (0%) to the full correction (100%). Works in both heuristic and measured modes — pull it back if the full correction is stronger than you like.</p>
-    </section>
-
-    <section class="panel" id="calib-panel">
-      <h2>Calibration <span class="phase-tag">measured</span></h2>
-      <label class="radio"><input type="checkbox" id="use-measured" disabled /> Use my measured calibration</label>
-      <label class="radio"><input type="checkbox" id="unlock-manual" disabled /> Unlock manual tweaks on top</label>
-      <p class="hint" id="calib-meta"></p>
-      <button id="btn-load-calib" class="secondary">Load calibration file…</button>
-      <input type="file" id="calib-file" accept=".json,application/json" hidden />
     </section>
 
     <section class="panel">
