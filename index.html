@@ -92,9 +92,51 @@
       <h2>Export <span class="version" id="export-mode"></span></h2>
       <div class="button-row column">
         <button id="btn-export-image" disabled>Download corrected photo (PNG)</button>
-        <button id="btn-export-cube" class="secondary">Download correction LUT (.cube)</button>
       </div>
       <p class="hint">The active correction mode is stamped into every export filename, so you always know what made a print. Send the corrected PNG to your phone and print it with the Polaroid app.</p>
+    </section>
+
+    <section class="panel">
+      <h2>Advanced <span class="phase-tag">build your own</span></h2>
+      <p class="hint">For rolling your own calibration: print charts, load a calibration you've fit, or load/save raw .cube LUTs.</p>
+
+      <label class="radio"><input type="checkbox" id="disable-correction" /> Turn off correction (preview/print the original)</label>
+
+      <p class="adv-label">Print a chart (with correction off)</p>
+      <select id="chart-select">
+        <optgroup label="Calibration">
+          <option value="color-1">Color chart 1</option>
+          <option value="color-2">Color chart 2</option>
+          <option value="bw">B&amp;W chart</option>
+        </optgroup>
+        <optgroup label="Refinement tests">
+          <option value="cube-1">Color cube 1 / 2</option>
+          <option value="cube-2">Color cube 2 / 2</option>
+          <option value="extreme">Extreme tone (toe/shoulder)</option>
+          <option value="repeat">Repeatability</option>
+          <option value="vignette">Vignette field (full frame)</option>
+        </optgroup>
+      </select>
+      <div class="button-row column">
+        <button id="btn-download-chart" class="secondary">Download selected chart (PNG)</button>
+      </div>
+
+      <p class="adv-label">Calibration</p>
+      <p class="hint" id="calib-status"></p>
+      <div class="button-row column">
+        <button id="btn-load-calib" class="secondary">Load calibration (.json)…</button>
+      </div>
+
+      <p class="adv-label">Custom LUT</p>
+      <p class="hint" id="advanced-status"></p>
+      <div class="button-row column">
+        <button id="btn-load-lut" class="secondary">Load .cube LUT…</button>
+        <button id="btn-clear-lut" class="secondary" hidden>Remove custom LUT</button>
+        <button id="btn-download-lut" class="secondary">Download current correction (.cube)</button>
+      </div>
+
+      <input type="file" id="lut-file" accept=".cube" hidden />
+      <input type="file" id="calib-file" accept=".json,application/json" hidden />
     </section>
 
   </aside>

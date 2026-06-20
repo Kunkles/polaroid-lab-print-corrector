@@ -14,6 +14,9 @@
     useMeasured: true,      // always use the measured calibration when available
     unlockManual: true,     // manual tweak sliders are always live
     strength: 1,            // 0..1 blend between no correction and full correction
+    disableCorrection: false, // advanced: bypass correction entirely
+    uploadedLut: null,      // advanced: a loaded .cube LUT { size, data }
+    uploadedLutName: '',
     labExposure: 0,         // simulated Lab AE exposure (stops), preview only
     fullImage: null,        // HTMLImageElement at native resolution
     fileName: 'photo',
@@ -25,10 +28,13 @@
   const activeMeasured = () =>
     state.useMeasured ? (state.filmType === 'bw' ? state.measuredBW : state.measuredColor) : null;
   const measuredActive = () => !!activeMeasured();
-  const slidersLive = () => !measuredActive() || state.unlockManual;
+  const slidersLive = () =>
+    !state.disableCorrection && !state.uploadedLut && (!measuredActive() || state.unlockManual);
 
   // identifies what produced an export, so prints are traceable
   const correctionMode = () => {
+    if (state.disableCorrection) return 'off';
+    if (state.uploadedLut) return 'custom-lut';
     const base = measuredActive() ? `measured-${state.filmType}` : `heuristic-${state.filmType}`;
     return state.strength >= 0.999 ? base : `${base}-${Math.round(state.strength * 100)}pct`;
   };
@@ -51,6 +57,8 @@
   // full correction. In B&W the blended result is re-neutralized so it stays
   // grayscale at partial strength.
   const currentCorrection = () => {
+    if (state.disableCorrection) return (r, g, b) => [r, g, b];
+    if (state.uploadedLut) return (r, g, b) => sampleLut(state.uploadedLut, r, g, b);
     const base = baseCorrection();
     const s = state.strength;
     if (s >= 0.999) return base;
@@ -186,12 +194,18 @@
 
   function refreshModeUI() {
     updateSliderEnabled();
+    document.getElementById('strength').disabled = state.disableCorrection || !!state.uploadedLut;
     document.getElementById('export-mode').textContent = correctionMode();
-    footerNote.textContent = measuredActive()
-      ? (state.filmType === 'bw'
-          ? 'Driven by the measured B&W film response (tone curve + spectral weights), with your manual tweaks on top. Deep shadows below the film’s floor can’t be recovered.'
-          : 'Driven by the measured color film response (per-channel), with your manual tweaks on top. Saturated colors are approximate; deep shadows below the film’s floor can’t be recovered.')
-      : heuristicNote;
+    footerNote.textContent =
+      state.disableCorrection
+        ? 'Correction is OFF — previews and exports pass the original through unchanged.'
+        : state.uploadedLut
+          ? `A custom .cube LUT is driving the correction (${state.uploadedLutName}). It overrides the built-in calibration.`
+          : measuredActive()
+            ? (state.filmType === 'bw'
+                ? 'Driven by the measured B&W film response (tone curve + spectral weights), with your manual tweaks on top. Deep shadows below the film’s floor can’t be recovered.'
+                : 'Driven by the measured color film response (per-channel), with your manual tweaks on top. Saturated colors are approximate; deep shadows below the film’s floor can’t be recovered.')
+            : heuristicNote;
   }
 
   function loadCalib(url, type, builder) {
@@ -321,11 +335,97 @@
     );
   });
 
-  document.getElementById('btn-export-cube').addEventListener('click', () => {
+  // --- Advanced: build-your-own calibration --------------------------------
+
+  document.getElementById('disable-correction').addEventListener('change', (e) => {
+    state.disableCorrection = e.target.checked;
+    refreshModeUI();
+    refreshPreviews();
+  });
+
+  // generate / download charts to print
+  const CHARTS = {
+    'color-1': [drawChart, COLOR_CHART], 'color-2': [drawChart, COLOR_CHART_2], 'bw': [drawChart, BW_CHART],
+    'cube-1': [drawGridChart, TEST_CHARTS.cube1], 'cube-2': [drawGridChart, TEST_CHARTS.cube2],
+    'extreme': [drawGridChart, TEST_CHARTS.extreme], 'repeat': [drawGridChart, TEST_CHARTS.repeat],
+    'vignette': [drawFlatField, TEST_CHARTS.vignette],
+  };
+  document.getElementById('btn-download-chart').addEventListener('click', () => {
+    const [draw, chart] = CHARTS[document.getElementById('chart-select').value];
+    const canvas = document.createElement('canvas');
+    draw(canvas, chart);
+    canvas.toBlob((blob) => download(blob, chart.file.replace(/\.png$/, `-v${APP_VERSION}.png`)), 'image/png');
+  });
+
+  // load a calibration the user has fit from their own scans
+  const calibStatus = document.getElementById('calib-status');
+  const calibFileEl = document.getElementById('calib-file');
+  document.getElementById('btn-load-calib').addEventListener('click', () => calibFileEl.click());
+  calibFileEl.addEventListener('change', () => {
+    const file = calibFileEl.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      let calib;
+      try { calib = JSON.parse(reader.result); } catch { alert('That file is not valid JSON.'); return; }
+      const type = calib.type === 'bw' || calib.toneGrid ? 'bw' : 'color';
+      try {
+        if (type === 'bw') state.measuredBW = loadBWCalibration(calib);
+        else state.measuredColor = loadCalibration(calib);
+      } catch { alert('That JSON does not look like a calibration file.'); return; }
+      state.filmType = type;
+      document.querySelector(`input[name="film-type"][value="${type}"]`).checked = true;
+      calibStatus.textContent = `Loaded ${type === 'bw' ? 'B&W' : 'color'} calibration: ${file.name}`;
+      refreshModeUI();
+      refreshPreviews();
+    };
+    reader.readAsText(file);
+    calibFileEl.value = '';
+  });
+
+  // custom .cube LUT: load (overrides the correction), clear, download current
+  const advStatus = document.getElementById('advanced-status');
+  const lutFileEl = document.getElementById('lut-file');
+  const clearLutBtn = document.getElementById('btn-clear-lut');
+  function updateLutStatus() {
+    if (state.uploadedLut) {
+      advStatus.textContent = `Custom LUT in use: ${state.uploadedLutName} (${state.uploadedLut.size}³) — overrides the built-in correction.`;
+      clearLutBtn.hidden = false;
+    } else {
+      advStatus.textContent = 'No custom LUT loaded — using the built-in correction.';
+      clearLutBtn.hidden = true;
+    }
+  }
+  document.getElementById('btn-load-lut').addEventListener('click', () => lutFileEl.click());
+  lutFileEl.addEventListener('change', () => {
+    const file = lutFileEl.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        state.uploadedLut = cubeToLut(reader.result);
+        state.uploadedLutName = file.name;
+      } catch (err) { alert('Could not read that .cube file: ' + err.message); return; }
+      updateLutStatus();
+      refreshModeUI();
+      refreshPreviews();
+    };
+    reader.readAsText(file);
+    lutFileEl.value = '';
+  });
+  clearLutBtn.addEventListener('click', () => {
+    state.uploadedLut = null;
+    state.uploadedLutName = '';
+    updateLutStatus();
+    refreshModeUI();
+    refreshPreviews();
+  });
+  document.getElementById('btn-download-lut').addEventListener('click', () => {
     const mode = correctionMode();
     const cube = lutToCube(buildLut(currentCorrection()), `${APP_NAME} v${APP_VERSION} — ${mode}`);
     download(cube, `polaroid-lab-${mode}-v${APP_VERSION}.cube`, 'text/plain');
   });
+  updateLutStatus();
 
   document.getElementById('app-version').textContent = 'v' + APP_VERSION;
 

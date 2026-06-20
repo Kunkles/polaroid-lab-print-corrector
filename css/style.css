@@ -113,6 +113,25 @@ main {
 
 .radio input { accent-color: var(--accent); margin-right: 0.35rem; }
 
+.adv-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-dim);
+  margin: 0.9rem 0 0.35rem;
+}
+
+select {
+  width: 100%;
+  font: inherit;
+  font-size: 0.82rem;
+  padding: 0.4rem 0.5rem;
+  border-radius: 7px;
+  border: 1px solid var(--panel-edge);
+  background: var(--panel);
+  color: var(--text);
+}
+
 .slider-row {
   margin-bottom: 0.55rem;
 }

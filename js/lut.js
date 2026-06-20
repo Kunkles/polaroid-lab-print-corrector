@@ -78,3 +78,46 @@ function lutToCube(lut, title) {
   }
   return lines.join('\n') + '\n';
 }
+
+/* Parse an Adobe .cube 3D LUT into { size, data } (red varies fastest). */
+function cubeToLut(text) {
+  let size = 0;
+  const data = [];
+  for (const raw of text.split(/\r?\n/)) {
+    const line = raw.trim();
+    if (!line || line.startsWith('#')) continue;
+    const m = line.match(/^LUT_3D_SIZE\s+(\d+)/i);
+    if (m) { size = +m[1]; continue; }
+    if (/^LUT_1D_SIZE/i.test(line)) throw new Error('1D LUTs are not supported');
+    if (/^(TITLE|DOMAIN_|LUT_)/i.test(line)) continue;
+    const p = line.split(/\s+/).map(Number);
+    if (p.length >= 3 && p.slice(0, 3).every((v) => !Number.isNaN(v))) data.push(p[0], p[1], p[2]);
+  }
+  if (!size || data.length !== size * size * size * 3) {
+    throw new Error('not a valid 3D .cube file');
+  }
+  return { size, data: Float32Array.from(data) };
+}
+
+/* Trilinearly sample a LUT at a single (r, g, b) in 0..1; returns [r, g, b]. */
+function sampleLut(lut, r, g, b) {
+  const { size: n, data: t } = lut;
+  const max = n - 1;
+  const fr = clamp01(r) * max, fg = clamp01(g) * max, fb = clamp01(b) * max;
+  const r0 = Math.min(fr | 0, max - 1), g0 = Math.min(fg | 0, max - 1), b0 = Math.min(fb | 0, max - 1);
+  const tr = fr - r0, tg = fg - g0, tb = fb - b0;
+  const i000 = 3 * (r0 + n * (g0 + n * b0));
+  const i100 = i000 + 3, i010 = i000 + 3 * n, i110 = i010 + 3;
+  const i001 = i000 + 3 * n * n, i101 = i001 + 3, i011 = i001 + 3 * n, i111 = i011 + 3;
+  const out = [0, 0, 0];
+  for (let c = 0; c < 3; c++) {
+    const c00 = t[i000 + c] + (t[i100 + c] - t[i000 + c]) * tr;
+    const c10 = t[i010 + c] + (t[i110 + c] - t[i010 + c]) * tr;
+    const c01 = t[i001 + c] + (t[i101 + c] - t[i001 + c]) * tr;
+    const c11 = t[i011 + c] + (t[i111 + c] - t[i011 + c]) * tr;
+    const c0 = c00 + (c10 - c00) * tg;
+    const c1 = c01 + (c11 - c01) * tg;
+    out[c] = c0 + (c1 - c0) * tb;
+  }
+  return out;
+}
