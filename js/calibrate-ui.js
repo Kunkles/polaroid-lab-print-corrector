@@ -66,6 +66,20 @@
     return { pairs, raw, im, fids, H };
   }
 
+  /* Like extractScan but for a cols×rows grid chart (the cube / refinement
+     charts). Returns centers so the overlay can mark every patch. */
+  async function extractCube(file, cols, rows, inputs) {
+    const url = URL.createObjectURL(file);
+    let im;
+    try { im = await loadImageData(url); } finally { URL.revokeObjectURL(url); }
+
+    const ex = extractGridChart(im, cols, rows, inputs.length);
+    const resp = stripResponse(ex.strips);
+    const pairs = ex.patches.map((raw, i) => ({ input: inputs[i], printed: normalizeColor(raw, resp) }));
+    const raw = { black: resp.black, gray: resp.gray, white: resp.white, ref: resp.ref };
+    return { pairs, raw, im, fids: ex.fids, H: ex.H, centers: ex.centers };
+  }
+
   /* Draw the scan scaled to fit, then overlay the detected fiducials, the patch
      sample centers and the reference-strip centers so the user can confirm the
      chart was located correctly before trusting the fit. */
@@ -99,10 +113,12 @@
       ctx.arc(x * scale, y * scale, 7, 0, Math.PI * 2);
       ctx.stroke();
     }
-    // 49 patch centers
-    for (let i = 0; i < 49; i++) {
-      const [x, y] = applyH(H, G.patchCenter(i));
-      dot(x, y, 3, 'rgba(232,105,74,0.95)');
+    // patch centers — grid charts pass their own; calibration charts use the 7x7
+    const centers = scan.centers || Array.from({ length: 49 }, (_, i) => G.patchCenter(i));
+    const r = scan.centers ? 2 : 3;
+    for (const pt of centers) {
+      const [x, y] = applyH(H, pt);
+      dot(x, y, r, 'rgba(232,105,74,0.95)');
     }
     // reference strip centers
     for (const s of ['top', 'bottom'])
@@ -241,6 +257,66 @@
     if (bwState.json) download(bwState.json, 'calibration-bw.json');
   });
 
+  // --- color (high-accuracy 3D cube) ---------------------------------------
+
+  const cubeState = { files: { 1: null, 2: null }, json: null };
+  const buildCubeBtn = document.getElementById('btn-build-cube');
+  const downloadCubeBtn = document.getElementById('btn-download-cube');
+  const cubeStatus = document.getElementById('status-cube');
+
+  const refreshCubeEnabled = () => {
+    buildCubeBtn.disabled = !(cubeState.files[1] && cubeState.files[2]);
+  };
+  wireDrop('drop-cube-1', (f) => { cubeState.files[1] = f; refreshCubeEnabled(); });
+  wireDrop('drop-cube-2', (f) => { cubeState.files[2] = f; refreshCubeEnabled(); });
+
+  buildCubeBtn.addEventListener('click', async () => {
+    buildCubeBtn.disabled = true;
+    downloadCubeBtn.disabled = true;
+    cubeStatus.className = 'hint';
+    cubeStatus.textContent = 'Reading scans…';
+
+    try {
+      const c1 = await extractCube(cubeState.files[1], TEST_CHARTS.cube1.cols, TEST_CHARTS.cube1.rows, TEST_CHARTS.cube1.patches);
+      const c2 = await extractCube(cubeState.files[2], TEST_CHARTS.cube2.cols, TEST_CHARTS.cube2.rows, TEST_CHARTS.cube2.patches);
+      document.getElementById('overlay-cube').hidden = false;
+      drawOverlay(document.getElementById('canvas-cube-1'), c1);
+      drawOverlay(document.getElementById('canvas-cube-2'), c2);
+
+      // let the overlay + status paint before the (synchronous) 3D solve blocks
+      cubeStatus.textContent = 'Fitting the 3D LUT (a few seconds)…';
+      await new Promise((r) => setTimeout(r, 30));
+
+      const pairs = [...c1.pairs, ...c2.pairs];
+      const model = solveColorCube(pairs);
+      const anchors = rawAnchors([c1.raw, c2.raw]);
+      const res = fitResidual(model.predictPrint, pairs);
+      const meta = {
+        date: new Date().toISOString().slice(0, 10),
+        app: `${APP_NAME} v${APP_VERSION}`,
+        model: '3d-cube',
+        patches: pairs.length,
+        sources: [cubeState.files[1].name, cubeState.files[2].name],
+      };
+      cubeState.json = JSON.stringify(exportColorCubeCalibration(model, meta, anchors), null, 2);
+
+      downloadCubeBtn.disabled = false;
+      cubeStatus.className = 'hint status-ok';
+      cubeStatus.innerHTML = `Fit a 3D LUT from ${pairs.length} patches. `
+        + `Forward-model residual <span class="metric">mean ${(res.mean * 100).toFixed(1)}%, max ${(res.max * 100).toFixed(1)}%</span>. `
+        + `Check the overlays, then download. Load it in the corrector for accurate saturated colors.`;
+    } catch (err) {
+      cubeStatus.className = 'hint status-err';
+      cubeStatus.textContent = detectError(err);
+    } finally {
+      refreshCubeEnabled();
+    }
+  });
+
+  downloadCubeBtn.addEventListener('click', () => {
+    if (cubeState.json) download(cubeState.json, 'calibration-color-cube.json');
+  });
+
   // --- shared helpers ------------------------------------------------------
 
   /* Mean / max absolute prediction error of the fitted forward model against
@@ -354,4 +430,27 @@
       setTimeout(() => { zipStatus.textContent = zipNote; }, 6000);
     }
   });
+
+  // individual chart downloads — one button each (handier on a phone)
+  const CHART_LABELS = {
+    'color-v1': 'Color chart 1', 'color-v2': 'Color chart 2', 'bw-v1': 'B&W chart',
+    'color-cube-1': 'Color cube 1 / 2', 'color-cube-2': 'Color cube 2 / 2',
+    'extreme-tone': 'Extreme tone', 'repeatability': 'Repeatability', 'vignette-field': 'Vignette field',
+  };
+  const chartListEl = document.getElementById('chart-list');
+  for (const [draw, chart] of ALL_CHARTS) {
+    const btn = document.createElement('button');
+    btn.className = 'secondary';
+    btn.textContent = CHART_LABELS[chart.id] || chart.id;
+    btn.addEventListener('click', async () => {
+      btn.disabled = true;
+      try {
+        const data = await chartToPng(draw, chart);
+        download(new Blob([data], { type: 'image/png' }), chart.file.replace(/\.png$/, `-v${APP_VERSION}.png`));
+      } finally {
+        btn.disabled = false;
+      }
+    });
+    chartListEl.append(btn);
+  }
 })();

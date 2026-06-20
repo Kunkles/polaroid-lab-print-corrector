@@ -35,7 +35,10 @@
   const correctionMode = () => {
     if (state.disableCorrection) return 'off';
     if (state.uploadedLut) return 'custom-lut';
-    const base = measuredActive() ? `measured-${state.filmType}` : `heuristic-${state.filmType}`;
+    const m = activeMeasured();
+    const base = m
+      ? (m.type === 'color3d' ? 'measured-color3d' : `measured-${state.filmType}`)
+      : `heuristic-${state.filmType}`;
     return state.strength >= 0.999 ? base : `${base}-${Math.round(state.strength * 100)}pct`;
   };
 
@@ -194,7 +197,9 @@
           : measuredActive()
             ? (state.filmType === 'bw'
                 ? 'Driven by the measured B&W film response (tone curve + spectral weights), with your manual tweaks on top. Deep shadows below the film’s floor can’t be recovered.'
-                : 'Driven by the measured color film response (per-channel), with your manual tweaks on top. Saturated colors are approximate; deep shadows below the film’s floor can’t be recovered.')
+                : activeMeasured().type === 'color3d'
+                  ? 'Driven by the measured color film response (full 3D LUT from the cube charts), with your manual tweaks on top. Saturated colors are modeled directly; deep shadows below the film’s floor can’t be recovered.'
+                  : 'Driven by the measured color film response (per-channel), with your manual tweaks on top. Saturated colors are approximate; deep shadows below the film’s floor can’t be recovered.')
             : heuristicNote;
   }
 
@@ -358,14 +363,16 @@
     reader.onload = () => {
       let calib;
       try { calib = JSON.parse(reader.result); } catch { alert('That file is not valid JSON.'); return; }
+      const is3d = calib.type === 'color3d';
       const type = calib.type === 'bw' || calib.toneGrid ? 'bw' : 'color';
       try {
         if (type === 'bw') state.measuredBW = loadBWCalibration(calib);
+        else if (is3d) state.measuredColor = loadColorCubeCalibration(calib);
         else state.measuredColor = loadCalibration(calib);
       } catch { alert('That JSON does not look like a calibration file.'); return; }
       state.filmType = type;
       document.querySelector(`input[name="film-type"][value="${type}"]`).checked = true;
-      calibStatus.textContent = `Loaded ${type === 'bw' ? 'B&W' : 'color'} calibration: ${file.name}`;
+      calibStatus.textContent = `Loaded ${type === 'bw' ? 'B&W' : is3d ? '3D color' : 'color'} calibration: ${file.name}`;
       refreshModeUI();
       refreshPreviews();
     };

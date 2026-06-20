@@ -223,6 +223,55 @@ function extractChart(im) {
   return { fids, strips, patches };
 }
 
+/* Patch centers (design coords, S=1200) for a cols×rows grid chart, matching
+   drawGridChart() in chart.js so the cube / refinement charts can be sampled. */
+function gridPatchCenters(cols, rows, n) {
+  const S = 1200, margin = 70, fid = 56;
+  const stripTopY = margin + fid + 18;           // same strips as CHART_GEOM
+  const stripBottomY = S - margin - fid - 18 - 50;
+  const gridTop = stripTopY + 50 + 18;
+  const gridBottom = stripBottomY - 18;
+  const gridW = S - 2 * margin;
+  const gridH = gridBottom - gridTop;
+  const cell = Math.min(gridW / cols, gridH / rows);
+  const startX = margin + (gridW - cols * cell) / 2;
+  const startY = gridTop + (gridH - rows * cell) / 2;
+  const centers = [];
+  for (let i = 0; i < n; i++) {
+    const col = i % cols, row = (i / cols) | 0;
+    centers.push([startX + (col + 0.5) * cell, startY + (row + 0.5) * cell]);
+  }
+  return { centers, cell };
+}
+
+/* Like extractChart, but for a cols×rows grid chart (drawGridChart layout).
+   Fiducials and reference strips are in the same place as the calibration
+   chart, so detection + normalization are identical; only the patch grid
+   differs. Returns the homography + centers too, for overlay drawing. */
+function extractGridChart(im, cols, rows, n) {
+  const fids = detectFiducials(im);
+  const G = CHART_GEOM;
+  const H = solveHomography(
+    [G.fiducials.TL, G.fiducials.TR, G.fiducials.BL, G.fiducials.BR],
+    [fids.TL, fids.TR, fids.BL, fids.BR]
+  );
+
+  const captW = Math.hypot(fids.TR[0] - fids.TL[0], fids.TR[1] - fids.TL[1]);
+  const scale = captW / (G.fiducials.TR[0] - G.fiducials.TL[0]);
+  const { centers, cell } = gridPatchCenters(cols, rows, n);
+  const patchR = Math.max(2, (cell * 0.3 * scale) | 0);
+  const stripR = Math.max(3, (12 * scale) | 0);
+  const sampleAt = (pt, r) => sampleMedian(im, ...applyH(H, pt), r);
+
+  const strips = {
+    top: G.strips.top.map((pt) => sampleAt(pt, stripR)),
+    bottom: G.strips.bottom.map((pt) => sampleAt(pt, stripR)),
+    ref: G.strips.ref,
+  };
+  const patches = centers.map((pt) => sampleAt(pt, patchR));
+  return { fids, H, strips, patches, centers };
+}
+
 // --- normalization ----------------------------------------------------------
 
 /* Build a per-channel response from the chart's own strips (averaging the top

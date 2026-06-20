@@ -51,6 +51,10 @@
   .metric { font-variant-numeric: tabular-nums; }
   ol.steps { margin: 0.4rem 0 0; padding-left: 1.1rem; font-size: 0.78rem; color: var(--text-dim); line-height: 1.5; }
   ol.steps code { color: var(--text); }
+
+  .chart-list { margin-top: 0.7rem; }
+  .chart-list > summary { font-size: 0.78rem; color: var(--accent); cursor: pointer; }
+  .chart-list #chart-list { margin-top: 0.6rem; }
 </style>
 </head>
 <body>
@@ -73,6 +77,11 @@
       <button id="btn-download-all-charts" class="secondary">Download all charts (.zip)</button>
     </div>
     <p class="hint" id="zip-status">All 8 charts in one file: 2 color + 1 B&amp;W calibration charts, plus 5 refinement test charts (color cube &times;2, extreme tone, repeatability, vignette).</p>
+
+    <details class="chart-list">
+      <summary>Or download charts individually (easier on a phone)</summary>
+      <div id="chart-list" class="button-row column"></div>
+    </details>
   </section>
 
   <div id="cal-setup">
@@ -128,6 +137,38 @@
 
       <div class="overlay-wrap" id="overlay-bw" hidden>
         <canvas id="canvas-bw"></canvas>
+        <p class="legend">
+          <span class="dot" style="background:#e8694a"></span>fiducials &amp; patches
+          <span class="dot" style="background:#50b4ff"></span>reference strips
+        </p>
+      </div>
+    </section>
+
+    <!-- ============== COLOR (high-accuracy, 3D cube) ============== -->
+    <section class="panel" id="cube-panel">
+      <h2>Color — high accuracy <span class="phase-tag">3D &middot; cube charts</span></h2>
+      <p class="hint">Upload <strong>both</strong> color cube charts (216 patches total). This fits a full <strong>3D&nbsp;LUT</strong> that models cross-channel behavior, so saturated colors land much more accurately than the per-channel color fit. Print both with correction OFF.</p>
+
+      <div class="drop-stack">
+        <label class="file-drop" id="drop-cube-1">
+          <input type="file" accept="image/*" />
+          <span>Color cube 1 / 2 scan<br/><small>click or drop</small></span>
+        </label>
+        <label class="file-drop" id="drop-cube-2">
+          <input type="file" accept="image/*" />
+          <span>Color cube 2 / 2 scan<br/><small>click or drop</small></span>
+        </label>
+      </div>
+
+      <div class="button-row column">
+        <button id="btn-build-cube" disabled>Build 3D color calibration</button>
+        <button id="btn-download-cube" class="secondary" disabled>Download calibration-color-cube.json</button>
+      </div>
+      <p class="hint" id="status-cube"></p>
+
+      <div class="overlay-wrap" id="overlay-cube" hidden>
+        <canvas id="canvas-cube-1"></canvas>
+        <canvas id="canvas-cube-2" style="margin-top:0.6rem"></canvas>
         <p class="legend">
           <span class="dot" style="background:#e8694a"></span>fiducials &amp; patches
           <span class="dot" style="background:#50b4ff"></span>reference strips

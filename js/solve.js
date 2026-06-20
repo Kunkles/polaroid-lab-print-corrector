@@ -255,6 +255,147 @@ function loadBWCalibration(calib) {
   return { correct, predictPrint, predictPrintRaw, anchors: A, weights: w, fwd, inv, type: 'bw' };
 }
 
+// --- color cube (full 3D) ----------------------------------------------------
+
+/* The cube charts sample inputs on a regular 6x6x6 grid, so the forward map
+   F(input)->printed is just a size-6 LUT and F(s) = sampleLut(forward, s).
+   Unlike the per-channel model, this captures cross-channel crosstalk, so
+   saturated colors land far more accurately. We fit F, then numerically invert
+   it (per output node) to build the correction LUT G = F^-1. */
+
+const CUBE_N = 6; // levels {0, .2, .4, .6, .8, 1.0}
+
+/* Drop the 216 measured pairs into a size-6 forward LUT (inputs are on the
+   grid). Light neighbour smoothing damps per-patch scan noise. Throws if the
+   cube isn't fully covered — both cube charts are required. */
+function buildCubeForward(pairs, { smooth = 0.15 } = {}) {
+  const N = CUBE_N;
+  const data = new Float32Array(N * N * N * 3);
+  const filled = new Uint8Array(N * N * N);
+  const idx = (r, g, b) => r + N * (g + N * b);
+  const lvl = (v) => Math.max(0, Math.min(N - 1, Math.round(clamp01(v) * (N - 1))));
+
+  for (const { input, printed } of pairs) {
+    const o = idx(lvl(input[0]), lvl(input[1]), lvl(input[2]));
+    filled[o] = 1;
+    for (let c = 0; c < 3; c++) data[3 * o + c] = printed[c];
+  }
+  const missing = filled.reduce((a, v) => a + (v ? 0 : 1), 0);
+  if (missing) throw new Error(`cube missing ${missing}/${N * N * N} nodes — upload BOTH cube charts`);
+
+  if (smooth <= 0) return { size: N, data };
+
+  // 6-neighbour blur, but never move the 8 cube corners (the extremes anchor
+  // the inversion).
+  const out = data.slice();
+  const nb = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]];
+  for (let b = 0; b < N; b++) for (let g = 0; g < N; g++) for (let r = 0; r < N; r++) {
+    const corner = (r === 0 || r === N - 1) && (g === 0 || g === N - 1) && (b === 0 || b === N - 1);
+    if (corner) continue;
+    const o = idx(r, g, b);
+    for (let c = 0; c < 3; c++) {
+      let sum = 0, cnt = 0;
+      for (const [dr, dg, db] of nb) {
+        const rr = r + dr, gg = g + dg, bb = b + db;
+        if (rr < 0 || rr >= N || gg < 0 || gg >= N || bb < 0 || bb >= N) continue;
+        sum += data[3 * idx(rr, gg, bb) + c]; cnt++;
+      }
+      out[3 * o + c] = (1 - smooth) * data[3 * o + c] + smooth * (cnt ? sum / cnt : data[3 * o + c]);
+    }
+  }
+  return { size: N, data: out };
+}
+
+/* Solve (JtJ + lambda*I) ds = Jt e  — a Levenberg-damped Gauss-Newton step,
+   robust when J is singular (flat / clipped regions of the film response). */
+function dampedSolve3(J, e, lambda = 1e-4) {
+  const A = [[0, 0, 0], [0, 0, 0], [0, 0, 0]], rhs = [0, 0, 0];
+  for (let r = 0; r < 3; r++) {
+    for (let c = 0; c < 3; c++) {
+      let s = 0; for (let k = 0; k < 3; k++) s += J[k][r] * J[k][c];
+      A[r][c] = s + (r === c ? lambda : 0);
+    }
+    let s = 0; for (let k = 0; k < 3; k++) s += J[k][r] * e[k];
+    rhs[r] = s;
+  }
+  return gauss(A, rhs);
+}
+
+/* Invert the forward LUT at a single target t: find input s with F(s)=t.
+   Newton with a finite-difference Jacobian, clamped to the cube. */
+function invertCubeAt(forward, t, seed) {
+  const s = (seed || t).slice();
+  for (let c = 0; c < 3; c++) s[c] = clamp01(s[c]);
+  for (let it = 0; it < 12; it++) {
+    const f = sampleLut(forward, s[0], s[1], s[2]);
+    const e = [t[0] - f[0], t[1] - f[1], t[2] - f[2]];
+    if (Math.abs(e[0]) + Math.abs(e[1]) + Math.abs(e[2]) < 3e-4) break;
+    const h = 1e-3, J = [[0, 0, 0], [0, 0, 0], [0, 0, 0]];
+    for (let c = 0; c < 3; c++) {
+      const sp = s.slice(); sp[c] = clamp01(sp[c] + h);
+      const hh = sp[c] - s[c] || h;
+      const fp = sampleLut(forward, sp[0], sp[1], sp[2]);
+      for (let r = 0; r < 3; r++) J[r][c] = (fp[r] - f[r]) / hh;
+    }
+    const ds = dampedSolve3(J, e);
+    for (let c = 0; c < 3; c++) s[c] = clamp01(s[c] + ds[c]);
+  }
+  return s;
+}
+
+/* Build the correction LUT by inverting the forward map at every node, warm-
+   starting along r for speed + continuity. */
+function buildCubeCorrectionLut(forward, size = LUT_SIZE) {
+  const data = new Float32Array(size * size * size * 3);
+  let i = 0;
+  for (let b = 0; b < size; b++) for (let g = 0; g < size; g++) {
+    let seed = null;
+    for (let r = 0; r < size; r++) {
+      const t = [r / (size - 1), g / (size - 1), b / (size - 1)];
+      const s = invertCubeAt(forward, t, seed || t);
+      seed = s;
+      data[i++] = s[0]; data[i++] = s[1]; data[i++] = s[2];
+    }
+  }
+  return { size, data };
+}
+
+/* Same interface as loadCalibration: correct / predictPrint(Raw). */
+function solveColorCube(pairs) {
+  const forward = buildCubeForward(pairs);
+  const correctLut = buildCubeCorrectionLut(forward);
+  return {
+    correct: (r, g, b) => sampleLut(correctLut, r, g, b),
+    predictPrint: (r, g, b) => sampleLut(forward, r, g, b),
+    forward, correctLut, type: 'color3d',
+  };
+}
+
+/* Serialize: store only the compact size-6 forward grid + anchors; the
+   correction LUT is rebuilt by inversion on load. */
+function exportColorCubeCalibration(model, meta = {}, anchors = null) {
+  return {
+    version: 1,
+    type: 'color3d',
+    meta,
+    forwardSize: model.forward.size,
+    forwardGrid: Array.from(model.forward.data).map((v) => +v.toFixed(5)),
+    rawAnchors: anchors,
+  };
+}
+
+function loadColorCubeCalibration(calib) {
+  const forward = { size: calib.forwardSize, data: Float32Array.from(calib.forwardGrid) };
+  const correctLut = buildCubeCorrectionLut(forward);
+  const predictPrint = (r, g, b) => sampleLut(forward, r, g, b);
+  const A = calib.rawAnchors;
+  const predictPrintRaw = A ? (r, g, b) => unNormalizeColor(predictPrint(r, g, b), A) : predictPrint;
+  return {
+    correct: (r, g, b) => sampleLut(correctLut, r, g, b),
+    predictPrint, predictPrintRaw, anchors: A, forward, correctLut, type: 'color3d',
+  };
+}
+
 /* Honest validation: fit on `train` pairs, predict the printed color of every
    `test` patch from its known input, and report error vs the measured print.
    Cross-chart (train v1 / test v2) also exercises the per-frame AE difference. */
