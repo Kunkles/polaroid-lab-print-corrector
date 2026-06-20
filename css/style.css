@@ -299,5 +299,5 @@ footer p {
   #strength-panel { order: 4; }
   #precomp { order: 5; }
   #export-panel { order: 6; }
-  #advanced-panel { order: 7; }
+  #calibration-panel { order: 7; }
 }

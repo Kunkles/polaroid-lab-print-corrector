@@ -330,27 +330,7 @@
     );
   });
 
-  // --- Advanced: build-your-own calibration --------------------------------
-
-  document.getElementById('disable-correction').addEventListener('change', (e) => {
-    state.disableCorrection = e.target.checked;
-    refreshModeUI();
-    refreshPreviews();
-  });
-
-  // generate / download charts to print
-  const CHARTS = {
-    'color-1': [drawChart, COLOR_CHART], 'color-2': [drawChart, COLOR_CHART_2], 'bw': [drawChart, BW_CHART],
-    'cube-1': [drawGridChart, TEST_CHARTS.cube1], 'cube-2': [drawGridChart, TEST_CHARTS.cube2],
-    'extreme': [drawGridChart, TEST_CHARTS.extreme], 'repeat': [drawGridChart, TEST_CHARTS.repeat],
-    'vignette': [drawFlatField, TEST_CHARTS.vignette],
-  };
-  document.getElementById('btn-download-chart').addEventListener('click', () => {
-    const [draw, chart] = CHARTS[document.getElementById('chart-select').value];
-    const canvas = document.createElement('canvas');
-    draw(canvas, chart);
-    canvas.toBlob((blob) => download(blob, chartDownloadName(chart)), 'image/png');
-  });
+  // --- Calibration: load a calibration built on the calibration page -------
 
   // load a calibration the user has fit from their own scans
   const calibStatus = document.getElementById('calib-status');
@@ -379,50 +359,6 @@
     reader.readAsText(file);
     calibFileEl.value = '';
   });
-
-  // custom .cube LUT: load (overrides the correction), clear, download current
-  const advStatus = document.getElementById('advanced-status');
-  const lutFileEl = document.getElementById('lut-file');
-  const clearLutBtn = document.getElementById('btn-clear-lut');
-  function updateLutStatus() {
-    if (state.uploadedLut) {
-      advStatus.textContent = `Custom LUT in use: ${state.uploadedLutName} (${state.uploadedLut.size}³) — overrides the built-in correction.`;
-      clearLutBtn.hidden = false;
-    } else {
-      advStatus.textContent = 'No custom LUT loaded — using the built-in correction.';
-      clearLutBtn.hidden = true;
-    }
-  }
-  document.getElementById('btn-load-lut').addEventListener('click', () => lutFileEl.click());
-  lutFileEl.addEventListener('change', () => {
-    const file = lutFileEl.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      try {
-        state.uploadedLut = cubeToLut(reader.result);
-        state.uploadedLutName = file.name;
-      } catch (err) { alert('Could not read that .cube file: ' + err.message); return; }
-      updateLutStatus();
-      refreshModeUI();
-      refreshPreviews();
-    };
-    reader.readAsText(file);
-    lutFileEl.value = '';
-  });
-  clearLutBtn.addEventListener('click', () => {
-    state.uploadedLut = null;
-    state.uploadedLutName = '';
-    updateLutStatus();
-    refreshModeUI();
-    refreshPreviews();
-  });
-  document.getElementById('btn-download-lut').addEventListener('click', () => {
-    const mode = correctionMode();
-    const cube = lutToCube(buildLut(currentCorrection()), `${APP_NAME} v${APP_VERSION} — ${mode}`);
-    download(cube, `polaroid-lab-${mode}-v${APP_VERSION}.cube`, 'text/plain');
-  });
-  updateLutStatus();
 
   document.getElementById('app-version').textContent = 'v' + APP_VERSION;
 
