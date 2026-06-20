@@ -328,3 +328,15 @@ const TEST_CHARTS = (() => {
     vignette: { id: 'vignette-field', file: 'test-vignette-field.png', level: 0x77 / 255 },
   };
 })();
+
+/* Download filename for a chart, matched to its upload-slot label so there's
+   no confusion about which slot a scanned file goes back into. Used by both the
+   calibration page (zip + individual) and the main app's Advanced panel. */
+const CHART_DOWNLOAD_NAMES = {
+  'color-v1': 'color-chart-1', 'color-v2': 'color-chart-2', 'bw-v1': 'bw-chart',
+  'color-cube-1': 'color-cube-1', 'color-cube-2': 'color-cube-2',
+  'extreme-tone': 'extreme-tone', 'repeatability': 'repeatability', 'vignette-field': 'vignette-field',
+};
+function chartDownloadName(chart) {
+  return `${CHART_DOWNLOAD_NAMES[chart.id] || chart.id}-v${APP_VERSION}.png`;
+}

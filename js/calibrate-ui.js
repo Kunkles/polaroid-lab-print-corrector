@@ -419,7 +419,7 @@
     try {
       const files = [];
       for (const [draw, chart] of ALL_CHARTS) {
-        files.push({ name: chart.file.replace(/\.png$/, `-v${APP_VERSION}.png`), data: await chartToPng(draw, chart) });
+        files.push({ name: chartDownloadName(chart), data: await chartToPng(draw, chart) });
       }
       download(makeZip(files), `polaroid-lab-charts-v${APP_VERSION}.zip`);
       zipStatus.textContent = `Downloaded ${files.length} charts as polaroid-lab-charts-v${APP_VERSION}.zip.`;
@@ -446,7 +446,7 @@
       btn.disabled = true;
       try {
         const data = await chartToPng(draw, chart);
-        download(new Blob([data], { type: 'image/png' }), chart.file.replace(/\.png$/, `-v${APP_VERSION}.png`));
+        download(new Blob([data], { type: 'image/png' }), chartDownloadName(chart));
       } finally {
         btn.disabled = false;
       }

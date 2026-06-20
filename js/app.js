@@ -349,7 +349,7 @@
     const [draw, chart] = CHARTS[document.getElementById('chart-select').value];
     const canvas = document.createElement('canvas');
     draw(canvas, chart);
-    canvas.toBlob((blob) => download(blob, chart.file.replace(/\.png$/, `-v${APP_VERSION}.png`)), 'image/png');
+    canvas.toBlob((blob) => download(blob, chartDownloadName(chart)), 'image/png');
   });
 
   // load a calibration the user has fit from their own scans
