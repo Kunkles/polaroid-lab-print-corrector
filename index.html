@@ -24,7 +24,11 @@
 </header>
 
 <main>
-  <section id="views">
+  <section id="views" class="empty">
+    <label class="file-drop" id="drop-zone">
+      <input type="file" id="file-input" accept="image/*" />
+      <span>Drop a photo here<br/>or click to browse</span>
+    </label>
     <figure class="view-card">
       <canvas id="canvas-original"></canvas>
       <figcaption>Original</figcaption>
@@ -41,7 +45,7 @@
       <canvas id="canvas-sim-corrected"></canvas>
       <figcaption>Predicted print of corrected</figcaption>
     </figure>
-    <p id="placeholder">Load a photo to begin.</p>
+    <button type="button" id="btn-replace" class="secondary">Replace photo…</button>
   </section>
 
   <section class="panel" id="precomp">
@@ -53,14 +57,6 @@
   </section>
 
   <div id="setup">
-    <section class="panel" id="photo-panel">
-      <h2>Photo</h2>
-      <label class="file-drop" id="drop-zone">
-        <input type="file" id="file-input" accept="image/*" />
-        <span>Drop a photo here<br/>or click to browse</span>
-      </label>
-    </section>
-
     <section class="panel" id="film-panel">
       <h2>Film</h2>
       <label class="radio"><input type="radio" name="film-type" value="color" checked /> Color (i-Type / 600)</label>

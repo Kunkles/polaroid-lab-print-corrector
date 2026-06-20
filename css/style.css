@@ -226,19 +226,21 @@ button:not(:disabled):hover { filter: brightness(1.12); }
   column-gap: 1.4rem;
 }
 
-#views.empty .view-card { display: none; }
+/* Load + preview are one area: when empty the previews collapse and the area
+   is the uploader; once a photo is loaded the tiles + a Replace button show. */
+#views.empty .view-card,
+#views.empty #btn-replace { display: none; }
 
-#placeholder {
-  display: none;
-  color: var(--text-dim);
+#drop-zone { grid-column: 1 / -1; }
+#views.empty #drop-zone { padding: 4rem 0; }
+#views:not(.empty) #drop-zone { display: none; }
+
+#btn-replace {
   grid-column: 1 / -1;
-  text-align: center;
-  padding: 4rem 0;
-  border: 1.5px dashed var(--panel-edge);
-  border-radius: 10px;
+  justify-self: center;
+  flex: none;
+  padding: 0.4rem 1.2rem;
 }
-
-#views.empty #placeholder { display: block; }
 
 .view-card {
   margin: 0;
@@ -288,16 +290,16 @@ footer p {
   #views { grid-template-columns: 1fr 1fr; gap: 0.5rem; }
 }
 
-/* Mobile order: film, photo, previews, correction strength, pre-compensation,
-   then the rest. display:contents dissolves the #setup grouping so its panels
-   become siblings of the previews/pre-comp and can be interleaved with order. */
+/* Mobile order: film, previews (which double as the uploader), correction
+   strength, pre-compensation, then the rest. display:contents dissolves the
+   #setup grouping so its panels become siblings of the previews/pre-comp and
+   can be interleaved with order. */
 @media (max-width: 700px) {
   #setup { display: contents; }
   #film-panel { order: 1; }
-  #photo-panel { order: 2; }
-  #views { order: 3; }
-  #strength-panel { order: 4; }
-  #precomp { order: 5; }
-  #export-panel { order: 6; }
-  #calibration-panel { order: 7; }
+  #views { order: 2; }
+  #strength-panel { order: 3; }
+  #precomp { order: 4; }
+  #export-panel { order: 5; }
+  #calibration-panel { order: 6; }
 }

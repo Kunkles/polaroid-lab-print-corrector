@@ -229,6 +229,9 @@
     if (fileInput.files[0]) loadFile(fileInput.files[0]);
   });
 
+  // once a photo is loaded the drop zone is hidden; this re-opens the picker
+  document.getElementById('btn-replace').addEventListener('click', () => fileInput.click());
+
   for (const target of [dropZone, document.body]) {
     target.addEventListener('dragover', (e) => {
       e.preventDefault();
