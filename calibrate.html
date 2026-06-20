@@ -64,11 +64,15 @@
   <section class="panel">
     <h2>How this works</h2>
     <ol class="steps">
-      <li>In the corrector's <strong>Advanced</strong> panel, download the calibration charts and print each one on the Lab <strong>with correction OFF</strong>.</li>
+      <li>Download the charts below (or individually in the corrector's <strong>Advanced</strong> panel) and print each one on the Lab <strong>with correction OFF</strong>.</li>
       <li>Scan or photograph the prints. Best results: scan all prints in a <strong>single pass</strong>, with the scanner's auto-color / auto-exposure turned <strong>off</strong>, and the whole chart (including its black corner squares) in frame.</li>
       <li>Upload the scans below and hit <strong>Build</strong>. Check the overlay to confirm the patches were located, then download the <code>.json</code>.</li>
       <li>Back in the corrector, open <strong>Advanced → Load calibration</strong> and pick your file.</li>
     </ol>
+    <div class="button-row column">
+      <button id="btn-download-all-charts" class="secondary">Download all charts (.zip)</button>
+    </div>
+    <p class="hint" id="zip-status">All 8 charts in one file: 2 color + 1 B&amp;W calibration charts, plus 5 refinement test charts (color cube &times;2, extreme tone, repeatability, vignette).</p>
   </section>
 
   <div id="cal-setup">

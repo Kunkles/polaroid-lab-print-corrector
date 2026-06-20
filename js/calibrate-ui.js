@@ -112,8 +112,8 @@
       }
   }
 
-  function download(text, fileName) {
-    const blob = new Blob([text], { type: 'application/json' });
+  function download(blobOrText, fileName) {
+    const blob = blobOrText instanceof Blob ? blobOrText : new Blob([blobOrText], { type: 'application/json' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     a.download = fileName;
@@ -268,4 +268,90 @@
         + 'the scan is the calibration chart from this app.';
     return 'Could not process that scan: ' + m;
   }
+
+  // --- download all charts as a .zip --------------------------------------
+
+  // every chart: [drawFn, definition]. Same set the corrector's Advanced panel
+  // exposes, rendered fresh here so the version stamp always matches.
+  const ALL_CHARTS = [
+    [drawChart, COLOR_CHART], [drawChart, COLOR_CHART_2], [drawChart, BW_CHART],
+    [drawGridChart, TEST_CHARTS.cube1], [drawGridChart, TEST_CHARTS.cube2],
+    [drawGridChart, TEST_CHARTS.extreme], [drawGridChart, TEST_CHARTS.repeat],
+    [drawFlatField, TEST_CHARTS.vignette],
+  ];
+
+  function chartToPng(draw, chart) {
+    const canvas = document.createElement('canvas');
+    draw(canvas, chart);
+    return new Promise((res) => canvas.toBlob(async (b) => res(new Uint8Array(await b.arrayBuffer())), 'image/png'));
+  }
+
+  /* Minimal store-method (no compression) ZIP writer — PNGs are already
+     compressed, so storing them keeps this dependency-free and tiny. */
+  function makeZip(files) {
+    const enc = new TextEncoder();
+    const u16 = (n) => new Uint8Array([n & 255, (n >> 8) & 255]);
+    const u32 = (n) => new Uint8Array([n & 255, (n >> 8) & 255, (n >> 16) & 255, (n >>> 24) & 255]);
+    const crc32 = (bytes) => {
+      let c = ~0;
+      for (let i = 0; i < bytes.length; i++) {
+        c ^= bytes[i];
+        for (let k = 0; k < 8; k++) c = (c >>> 1) ^ (0xEDB88320 & -(c & 1));
+      }
+      return (~c) >>> 0;
+    };
+
+    const chunks = [];
+    const central = [];
+    let offset = 0;
+    const push = (arr) => { chunks.push(arr); offset += arr.length; };
+
+    for (const f of files) {
+      const name = enc.encode(f.name);
+      const crc = crc32(f.data);
+      const size = f.data.length;
+      const localOffset = offset;
+      push(u32(0x04034b50)); push(u16(20)); push(u16(0)); push(u16(0)); // sig, ver, flags, store
+      push(u16(0)); push(u16(0));                                       // mod time/date
+      push(u32(crc)); push(u32(size)); push(u32(size));
+      push(u16(name.length)); push(u16(0));
+      push(name); push(f.data);
+
+      central.push([
+        u32(0x02014b50), u16(20), u16(20), u16(0), u16(0), u16(0), u16(0),
+        u32(crc), u32(size), u32(size),
+        u16(name.length), u16(0), u16(0), u16(0), u16(0), u32(0), u32(localOffset), name,
+      ]);
+    }
+
+    const cdStart = offset;
+    let cdSize = 0;
+    for (const c of central) for (const a of c) { push(a); cdSize += a.length; }
+    push(u32(0x06054b50)); push(u16(0)); push(u16(0));
+    push(u16(files.length)); push(u16(files.length));
+    push(u32(cdSize)); push(u32(cdStart)); push(u16(0));
+
+    return new Blob(chunks, { type: 'application/zip' });
+  }
+
+  const zipBtn = document.getElementById('btn-download-all-charts');
+  const zipStatus = document.getElementById('zip-status');
+  const zipNote = zipStatus.textContent;
+  zipBtn.addEventListener('click', async () => {
+    zipBtn.disabled = true;
+    zipStatus.textContent = 'Rendering charts…';
+    try {
+      const files = [];
+      for (const [draw, chart] of ALL_CHARTS) {
+        files.push({ name: chart.file.replace(/\.png$/, `-v${APP_VERSION}.png`), data: await chartToPng(draw, chart) });
+      }
+      download(makeZip(files), `polaroid-lab-charts-v${APP_VERSION}.zip`);
+      zipStatus.textContent = `Downloaded ${files.length} charts as polaroid-lab-charts-v${APP_VERSION}.zip.`;
+    } catch (err) {
+      zipStatus.textContent = 'Could not build the zip: ' + (err && err.message || err);
+    } finally {
+      zipBtn.disabled = false;
+      setTimeout(() => { zipStatus.textContent = zipNote; }, 6000);
+    }
+  });
 })();
