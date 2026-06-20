@@ -184,6 +184,22 @@ button:disabled {
 
 button:not(:disabled):hover { filter: brightness(1.12); }
 
+/* anchor styled to match a .secondary button (used for cross-page links) */
+.btn-link {
+  font: inherit;
+  font-size: 0.8rem;
+  padding: 0.45rem 0.7rem;
+  border-radius: 7px;
+  border: 1px solid var(--panel-edge);
+  background: transparent;
+  color: var(--text);
+  text-align: center;
+  text-decoration: none;
+  display: block;
+}
+
+.btn-link:hover { filter: brightness(1.12); border-color: var(--accent); }
+
 .hint {
   font-size: 0.74rem;
   color: var(--text-dim);

@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<!--
+  Polaroid Lab Print Corrector — Calibration builder
+  Copyright (c) 2026 Ryan Kunkleman — https://github.com/Kunkles/polaroid-lab-print-corrector
+  Original work by Ryan Kunkleman. MIT licensed: keep this notice if you reuse it.
+-->
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="author" content="Ryan Kunkleman" />
+<link rel="author" href="https://github.com/Kunkles" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Build a calibration — Polaroid Lab Print Corrector</title>
+<meta name="description" content="Upload your scanned calibration charts to fit your own color and B&amp;W Polaroid Lab calibration, then download it as a .json the corrector can load." />
+<link rel="stylesheet" href="css/style.css" />
+<style>
+  /* page-specific bits; everything else reuses css/style.css */
+  .back-link {
+    display: inline-block;
+    margin-top: 0.4rem;
+    font-size: 0.82rem;
+    color: var(--accent);
+    text-decoration: none;
+  }
+  .back-link:hover { text-decoration: underline; }
+
+  #cal-setup {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+    gap: 0.8rem;
+    align-items: start;
+  }
+  #cal-setup .panel { margin: 0; }
+
+  .drop-stack { display: flex; flex-direction: column; gap: 0.6rem; }
+  .file-drop.loaded { border-style: solid; border-color: var(--accent); color: var(--text); }
+  .file-drop .fd-name { display: block; font-size: 0.78rem; margin-top: 0.25rem; color: var(--accent); }
+
+  .overlay-wrap { margin-top: 0.7rem; }
+  .overlay-wrap canvas {
+    width: 100%;
+    max-width: 520px;
+    border-radius: 8px;
+    border: 1px solid var(--panel-edge);
+    display: block;
+  }
+  .legend { font-size: 0.7rem; color: var(--text-dim); margin: 0.35rem 0 0; }
+  .legend .dot { display: inline-block; width: 0.6em; height: 0.6em; border-radius: 50%; vertical-align: middle; margin: 0 0.2em 0 0.6em; }
+  .status-ok { color: #6fcaa0; }
+  .status-err { color: var(--accent); }
+  .metric { font-variant-numeric: tabular-nums; }
+  ol.steps { margin: 0.4rem 0 0; padding-left: 1.1rem; font-size: 0.78rem; color: var(--text-dim); line-height: 1.5; }
+  ol.steps code { color: var(--text); }
+</style>
+</head>
+<body>
+<header>
+  <h1>Build a calibration <span class="version" id="app-version"></span></h1>
+  <p class="subtitle">Upload the calibration charts you printed on the Lab and scanned back in. This fits the film's response and gives you a <code>.json</code> the corrector can load. Color and B&amp;W are independent — do whichever you want.</p>
+  <a class="back-link" href="index.html">&larr; Back to the corrector</a>
+</header>
+
+<main>
+  <section class="panel">
+    <h2>How this works</h2>
+    <ol class="steps">
+      <li>In the corrector's <strong>Advanced</strong> panel, download the calibration charts and print each one on the Lab <strong>with correction OFF</strong>.</li>
+      <li>Scan or photograph the prints. Best results: scan all prints in a <strong>single pass</strong>, with the scanner's auto-color / auto-exposure turned <strong>off</strong>, and the whole chart (including its black corner squares) in frame.</li>
+      <li>Upload the scans below and hit <strong>Build</strong>. Check the overlay to confirm the patches were located, then download the <code>.json</code>.</li>
+      <li>Back in the corrector, open <strong>Advanced → Load calibration</strong> and pick your file.</li>
+    </ol>
+  </section>
+
+  <div id="cal-setup">
+    <!-- ===================== COLOR ===================== -->
+    <section class="panel" id="color-panel">
+      <h2>Color calibration <span class="phase-tag">optional</span></h2>
+      <p class="hint">Upload <strong>Color chart 1</strong> and/or <strong>Color chart 2</strong>. One works; both (98 patches) fits the tone curve and color cast more accurately.</p>
+
+      <div class="drop-stack">
+        <label class="file-drop" id="drop-color-1">
+          <input type="file" accept="image/*" />
+          <span>Color chart 1 scan<br/><small>click or drop</small></span>
+        </label>
+        <label class="file-drop" id="drop-color-2">
+          <input type="file" accept="image/*" />
+          <span>Color chart 2 scan<br/><small>click or drop</small></span>
+        </label>
+      </div>
+
+      <div class="button-row column">
+        <button id="btn-build-color" disabled>Build color calibration</button>
+        <button id="btn-download-color" class="secondary" disabled>Download calibration-color.json</button>
+      </div>
+      <p class="hint" id="status-color"></p>
+
+      <div class="overlay-wrap" id="overlay-color" hidden>
+        <canvas id="canvas-color-1"></canvas>
+        <canvas id="canvas-color-2" style="margin-top:0.6rem" hidden></canvas>
+        <p class="legend">
+          <span class="dot" style="background:#e8694a"></span>fiducials &amp; patches
+          <span class="dot" style="background:#50b4ff"></span>reference strips
+        </p>
+      </div>
+    </section>
+
+    <!-- ===================== B&W ===================== -->
+    <section class="panel" id="bw-panel">
+      <h2>B&amp;W calibration <span class="phase-tag">optional</span></h2>
+      <p class="hint">Upload the <strong>B&amp;W chart</strong> scan. This fits the tone curve plus the film's spectral weights (how bright red / green / blue render in B&amp;W — this stock is blue-sensitive).</p>
+
+      <div class="drop-stack">
+        <label class="file-drop" id="drop-bw">
+          <input type="file" accept="image/*" />
+          <span>B&amp;W chart scan<br/><small>click or drop</small></span>
+        </label>
+      </div>
+
+      <div class="button-row column">
+        <button id="btn-build-bw" disabled>Build B&amp;W calibration</button>
+        <button id="btn-download-bw" class="secondary" disabled>Download calibration-bw.json</button>
+      </div>
+      <p class="hint" id="status-bw"></p>
+
+      <div class="overlay-wrap" id="overlay-bw" hidden>
+        <canvas id="canvas-bw"></canvas>
+        <p class="legend">
+          <span class="dot" style="background:#e8694a"></span>fiducials &amp; patches
+          <span class="dot" style="background:#50b4ff"></span>reference strips
+        </p>
+      </div>
+    </section>
+  </div>
+</main>
+
+<footer>
+  <p id="footer-note">Calibration is fit entirely in your browser — nothing is uploaded anywhere. The chart layout and patch values must match the charts produced by this version of the app.</p>
+</footer>
+
+<script src="js/version.js"></script>
+<script src="js/lut.js"></script>
+<script src="js/pipeline.js"></script>
+<script src="js/chart.js"></script>
+<script src="js/calibrate.js"></script>
+<script src="js/solve.js"></script>
+<script src="js/calibrate-ui.js"></script>
+</body>
+</html>
