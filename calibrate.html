@@ -12,6 +12,15 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Build a calibration — Polaroid Lab Print Corrector</title>
 <meta name="description" content="Upload your scanned calibration charts to fit your own color and B&amp;W Polaroid Lab calibration, then download it as a .json the corrector can load." />
+<meta property="og:title" content="Build a calibration — Polaroid Lab Print Corrector" />
+<meta property="og:description" content="Upload your scanned charts to fit your own color and B&amp;W Polaroid Lab calibration." />
+<meta property="og:type" content="website" />
+<meta property="og:image" content="https://kunkles.github.io/polaroid-lab-print-corrector/icon.png" />
+<link rel="icon" type="image/png" href="icon.png" />
+<link rel="apple-touch-icon" href="icon.png" />
+<meta name="apple-mobile-web-app-title" content="Polaroid Lab" />
+<meta name="theme-color" content="#15161a" />
+<link rel="manifest" href="manifest.json" />
 <link rel="stylesheet" href="css/style.css" />
 <style>
   /* page-specific bits; everything else reuses css/style.css */
@@ -59,9 +68,12 @@
 </head>
 <body>
 <header>
-  <h1>Build a calibration <span class="version" id="app-version"></span></h1>
-  <p class="subtitle">Upload the calibration charts you printed on the Lab and scanned back in. This fits the film's response and gives you a <code>.json</code> the corrector can load. Color and B&amp;W are independent — do whichever you want.</p>
-  <a class="back-link" href="index.html">&larr; Back to the corrector</a>
+  <img class="app-logo" src="icon.png" alt="" width="48" height="48" />
+  <div>
+    <h1>Build a calibration <span class="version" id="app-version"></span></h1>
+    <p class="subtitle">Upload the calibration charts you printed on the Lab and scanned back in. This fits the film's response and gives you a <code>.json</code> the corrector can load. Color and B&amp;W are independent — do whichever you want.</p>
+    <a class="back-link" href="index.html">&larr; Back to the corrector</a>
+  </div>
 </header>
 
 <main>

@@ -19,6 +19,16 @@ body {
 
 header {
   padding: 1.2rem 1.5rem 0.6rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.8rem;
+}
+
+.app-logo {
+  width: 48px;
+  height: 48px;
+  border-radius: 11px;
+  flex: none;
 }
 
 h1 {

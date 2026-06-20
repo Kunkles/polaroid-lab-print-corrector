@@ -1,0 +1,13 @@
+{
+  "name": "Polaroid Lab Print Corrector",
+  "short_name": "Polaroid Lab",
+  "description": "Pre-compensate photos so they print correctly on the Polaroid Lab instant printer.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "browser",
+  "background_color": "#15161a",
+  "theme_color": "#15161a",
+  "icons": [
+    { "src": "icon.png", "sizes": "1254x1254", "type": "image/png", "purpose": "any" }
+  ]
+}
