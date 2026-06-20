@@ -25,9 +25,9 @@ header {
 }
 
 .app-logo {
-  width: 48px;
-  height: 48px;
-  border-radius: 11px;
+  width: 96px;
+  height: 96px;
+  border-radius: 22%;
   flex: none;
 }
 
@@ -305,6 +305,7 @@ footer p {
    #setup grouping so its panels become siblings of the previews/pre-comp and
    can be interleaved with order. */
 @media (max-width: 700px) {
+  .app-logo { width: 192px; height: 192px; }
   #setup { display: contents; }
   #film-panel { order: 1; }
   #views { order: 2; }
