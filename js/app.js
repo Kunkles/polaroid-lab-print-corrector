@@ -166,16 +166,6 @@
     });
   }
 
-  // --- Lab exposure (predicted-print simulation) ---------------------------
-
-  const labExpoEl = document.getElementById('lab-expo');
-  const labExpoVal = document.getElementById('lab-expo-val');
-  labExpoEl.addEventListener('input', () => {
-    state.labExposure = Number(labExpoEl.value);
-    labExpoVal.textContent = (state.labExposure >= 0 ? '+' : '') + state.labExposure.toFixed(1);
-    refreshPreviews();
-  });
-
   // --- Correction strength -------------------------------------------------
 
   const strengthEl = document.getElementById('strength');

@@ -52,7 +52,7 @@ main {
   padding: 1rem 1.5rem;
 }
 
-#controls {
+#setup {
   columns: 300px 3;
   column-gap: 0.8rem;
 }
@@ -270,4 +270,18 @@ footer p {
 
 @media (max-width: 620px) {
   #views { grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+}
+
+/* Mobile order: film, photo, previews, correction strength, pre-compensation,
+   then the rest. display:contents dissolves the #setup grouping so its panels
+   become siblings of the previews/pre-comp and can be interleaved with order. */
+@media (max-width: 700px) {
+  #setup { display: contents; }
+  #film-panel { order: 1; }
+  #photo-panel { order: 2; }
+  #views { order: 3; }
+  #strength-panel { order: 4; }
+  #precomp { order: 5; }
+  #export-panel { order: 6; }
+  #advanced-panel { order: 7; }
 }
