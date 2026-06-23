@@ -314,7 +314,16 @@
     URL.revokeObjectURL(a.href);
   }
 
-  exportImageBtn.addEventListener('click', () => {
+  function dataUrlToBlob(dataUrl) {
+    const [head, b64] = dataUrl.split(',');
+    const mime = head.match(/:(.*?);/)[1];
+    const bin = atob(b64);
+    const arr = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+    return new Blob([arr], { type: mime });
+  }
+
+  exportImageBtn.addEventListener('click', async () => {
     const img = state.fullImage;
     const scale = Math.min(1, EXPORT_MAX / Math.max(img.width, img.height));
     const canvas = document.createElement('canvas');
@@ -327,10 +336,27 @@
     applyLut(pixels, buildLut(currentCorrection()));
     ctx.putImageData(pixels, 0, 0);
 
-    canvas.toBlob(
-      (blob) => download(blob, `${state.fileName}_${correctionMode()}_v${APP_VERSION}.png`),
-      'image/png',
-    );
+    const fileName = `${state.fileName}_${correctionMode()}_v${APP_VERSION}.png`;
+    // Build the blob synchronously so navigator.share() stays inside the click's
+    // user-activation window (iOS drops activation across an async toBlob).
+    const blob = dataUrlToBlob(canvas.toDataURL('image/png'));
+    const file = new File([blob], fileName, { type: 'image/png' });
+
+    // On phones/tablets the share sheet offers "Save Image" → Photos, which is
+    // what people want; a plain download lands in Files on iOS. Desktop keeps
+    // the direct download.
+    const canShareFile = navigator.canShare && navigator.canShare({ files: [file] });
+    const touch = window.matchMedia('(pointer: coarse)').matches;
+    if (canShareFile && touch) {
+      try {
+        await navigator.share({ files: [file] });
+        return;
+      } catch (err) {
+        if (err && err.name === 'AbortError') return; // user dismissed the sheet
+        // anything else: fall through to a normal download
+      }
+    }
+    download(blob, fileName);
   });
 
   // --- Calibration: load a calibration built on the calibration page -------
