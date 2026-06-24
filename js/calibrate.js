@@ -272,6 +272,46 @@ function extractGridChart(im, cols, rows, n) {
   return { fids, H, strips, patches, centers };
 }
 
+// --- orientation ------------------------------------------------------------
+
+/* Rotate ImageData by 0/90/180/270°. Charts are square with four identical
+   corner fiducials, so orientation can't be read from the fiducials — a chart
+   scanned sideways still detects 4 corners but maps the patches wrong. */
+function rotateImageData(im, deg) {
+  if (deg % 360 === 0) return im;
+  const src = document.createElement('canvas');
+  src.width = im.width; src.height = im.height;
+  src.getContext('2d').putImageData(im, 0, 0);
+  const swap = deg % 180 !== 0;
+  const c = document.createElement('canvas');
+  c.width = swap ? im.height : im.width;
+  c.height = swap ? im.width : im.height;
+  const x = c.getContext('2d');
+  x.translate(c.width / 2, c.height / 2);
+  x.rotate((deg * Math.PI) / 180);
+  x.drawImage(src, -im.width / 2, -im.height / 2);
+  return x.getImageData(0, 0, c.width, c.height);
+}
+
+/* Extract a chart at whichever of the 4 orientations is correct. The reference
+   strips (black/gray/white) only read with full black→white separation when the
+   chart is upright, so the orientation with the largest separation wins. Works
+   for any chart type (all share the same strips). Returns { ex, im, deg }. */
+function extractOriented(im, extractFn) {
+  let best = null;
+  for (const deg of [0, 90, 180, 270]) {
+    try {
+      const rim = rotateImageData(im, deg);
+      const ex = extractFn(rim);
+      const r = stripResponse(ex.strips);
+      const sep = (r.white[0] + r.white[1] + r.white[2] - r.black[0] - r.black[1] - r.black[2]) / 3;
+      if (!best || sep > best.sep) best = { sep, ex, im: rim, deg };
+    } catch (e) { /* fiducials not found at this rotation — skip */ }
+  }
+  if (!best) throw new Error('only 0 fiducial candidates'); // matches detectFiducials phrasing
+  return best;
+}
+
 // --- normalization ----------------------------------------------------------
 
 /* Build a per-channel response from the chart's own strips (averaging the top

@@ -50,20 +50,20 @@
     let im;
     try { im = await loadImageData(url); } finally { URL.revokeObjectURL(url); }
 
-    const fids = detectFiducials(im); // throws if the 4 corners aren't found
+    const best = extractOriented(im, extractChart); // auto-corrects 90/180/270° scans
+    const ex = best.ex;
     const G = CHART_GEOM;
     const H = solveHomography(
       [G.fiducials.TL, G.fiducials.TR, G.fiducials.BL, G.fiducials.BR],
-      [fids.TL, fids.TR, fids.BL, fids.BR],
+      [ex.fids.TL, ex.fids.TR, ex.fids.BL, ex.fids.BR],
     );
 
-    const ex = extractChart(im);
     const resp = stripResponse(ex.strips);
     const pairs = ex.patches.map((raw, i) => ({ input: inputs[i], printed: normalizeColor(raw, resp) }));
     // stripResponse already returns { black, gray, white, ref } — exactly the
     // shape rawAnchors() averages across scans.
     const raw = { black: resp.black, gray: resp.gray, white: resp.white, ref: resp.ref };
-    return { pairs, raw, im, fids, H };
+    return { pairs, raw, im: best.im, fids: ex.fids, H };
   }
 
   /* Like extractScan but for a cols×rows grid chart (the cube / refinement
@@ -73,11 +73,12 @@
     let im;
     try { im = await loadImageData(url); } finally { URL.revokeObjectURL(url); }
 
-    const ex = extractGridChart(im, cols, rows, inputs.length);
+    const best = extractOriented(im, (rim) => extractGridChart(rim, cols, rows, inputs.length));
+    const ex = best.ex;
     const resp = stripResponse(ex.strips);
     const pairs = ex.patches.map((raw, i) => ({ input: inputs[i], printed: normalizeColor(raw, resp) }));
     const raw = { black: resp.black, gray: resp.gray, white: resp.white, ref: resp.ref };
-    return { pairs, raw, im, fids: ex.fids, H: ex.H, centers: ex.centers };
+    return { pairs, raw, im: best.im, fids: ex.fids, H: ex.H, centers: ex.centers };
   }
 
   /* Draw the scan scaled to fit, then overlay the detected fiducials, the patch

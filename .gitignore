@@ -14,7 +14,11 @@ FullSizeRender*
 charts/*
 !charts/calibration-chart-*.png
 !charts/calibration-color.json
+!charts/calibration-color-cube.json
 !charts/calibration-bw.json
+
+# Local rescans for calibration re-checks — keep out of the public repo.
+CartsRescanned/
 
 # Tooling / OS / local config
 node_modules/
