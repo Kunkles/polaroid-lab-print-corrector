@@ -362,6 +362,31 @@
     return new Promise((res) => canvas.toBlob(async (b) => res(new Uint8Array(await b.arrayBuffer())), 'image/png'));
   }
 
+  function dataUrlToBlob(dataUrl) {
+    const [head, b64] = dataUrl.split(',');
+    const mime = head.match(/:(.*?);/)[1];
+    const bin = atob(b64);
+    const arr = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+    return new Blob([arr], { type: mime });
+  }
+
+  /* Render a chart and, on phones/tablets, offer the share sheet (→ "Save Image"
+     → Photos, matching the corrector); desktop just downloads. Built
+     synchronously so navigator.share() stays in the click's activation window. */
+  async function saveChartImage(draw, chart) {
+    const canvas = document.createElement('canvas');
+    draw(canvas, chart);
+    const file = new File([dataUrlToBlob(canvas.toDataURL('image/png'))], chartDownloadName(chart), { type: 'image/png' });
+    const canShareFile = navigator.canShare && navigator.canShare({ files: [file] });
+    const touch = window.matchMedia('(pointer: coarse)').matches;
+    if (canShareFile && touch) {
+      try { await navigator.share({ files: [file] }); return; }
+      catch (err) { if (err && err.name === 'AbortError') return; }
+    }
+    download(file, file.name);
+  }
+
   /* Minimal store-method (no compression) ZIP writer — PNGs are already
      compressed, so storing them keeps this dependency-free and tiny. */
   function makeZip(files) {
@@ -445,8 +470,7 @@
     btn.addEventListener('click', async () => {
       btn.disabled = true;
       try {
-        const data = await chartToPng(draw, chart);
-        download(new Blob([data], { type: 'image/png' }), chartDownloadName(chart));
+        await saveChartImage(draw, chart);
       } finally {
         btn.disabled = false;
       }
