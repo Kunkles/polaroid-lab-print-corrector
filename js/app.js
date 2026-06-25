@@ -9,7 +9,8 @@
   const state = {
     params: { ...NEUTRAL },  // manual tweaks ride on top of the measured calibration
     filmType: 'color',      // 'color' | 'bw'
-    measuredColor: null,    // loaded color calibration model, if any
+    colorModels: { cube: null, perchannel: null }, // both color calibrations
+    colorChoice: 'cube',    // which color model is active ('cube' | 'perchannel')
     measuredBW: null,       // loaded B&W calibration model, if any
     useMeasured: true,      // always use the measured calibration when available
     unlockManual: true,     // manual tweak sliders are always live
@@ -24,9 +25,11 @@
     renderQueued: false,
   };
 
+  // the active color model (cube or per-channel)
+  const colorModel = () => state.colorModels[state.colorChoice];
   // the measured model for the current film type, if loaded and enabled
   const activeMeasured = () =>
-    state.useMeasured ? (state.filmType === 'bw' ? state.measuredBW : state.measuredColor) : null;
+    state.useMeasured ? (state.filmType === 'bw' ? state.measuredBW : colorModel()) : null;
   const measuredActive = () => !!activeMeasured();
   const slidersLive = () =>
     !state.disableCorrection && !state.uploadedLut && (!measuredActive() || state.unlockManual);
@@ -169,6 +172,20 @@
     });
   }
 
+  // --- Color model toggle (A/B the cube vs per-channel calibration) --------
+
+  function syncColorModelRadio() {
+    const el = document.querySelector(`input[name="color-model"][value="${state.colorChoice}"]`);
+    if (el) el.checked = true;
+  }
+  for (const radio of document.querySelectorAll('input[name="color-model"]')) {
+    radio.addEventListener('change', () => {
+      state.colorChoice = radio.value;
+      refreshModeUI();
+      refreshPreviews();
+    });
+  }
+
   // --- Correction strength -------------------------------------------------
 
   const strengthEl = document.getElementById('strength');
@@ -203,22 +220,22 @@
             : heuristicNote;
   }
 
-  function loadCalib(url, type, builder) {
+  function loadCalib(url, apply) {
     return fetch(url)
       .then((r) => (r.ok ? r.json() : null))
       .then((calib) => {
         if (!calib) return;
-        if (type === 'bw') state.measuredBW = builder(calib);
-        else state.measuredColor = builder(calib);
+        apply(calib);
         refreshModeUI();
         refreshPreviews();
       })
       .catch(() => {});
   }
-  // Color defaults to the measured 3D cube calibration (best saturated-color
-  // accuracy); the per-channel calibration-color.json stays loadable by hand.
-  loadCalib('charts/calibration-color-cube.json', 'color', loadColorCubeCalibration);
-  loadCalib('charts/calibration-bw.json', 'bw', loadBWCalibration);
+  // Load both color calibrations so the footer toggle can A/B them. Color
+  // defaults to the 3D cube (best saturated-color accuracy).
+  loadCalib('charts/calibration-color-cube.json', (c) => { state.colorModels.cube = loadColorCubeCalibration(c); });
+  loadCalib('charts/calibration-color.json', (c) => { state.colorModels.perchannel = loadCalibration(c); });
+  loadCalib('charts/calibration-bw.json', (c) => { state.measuredBW = loadBWCalibration(c); });
 
   refreshModeUI();
 
@@ -378,11 +395,12 @@
       const type = calib.type === 'bw' || calib.toneGrid ? 'bw' : 'color';
       try {
         if (type === 'bw') state.measuredBW = loadBWCalibration(calib);
-        else if (is3d) state.measuredColor = loadColorCubeCalibration(calib);
-        else state.measuredColor = loadCalibration(calib);
+        else if (is3d) { state.colorModels.cube = loadColorCubeCalibration(calib); state.colorChoice = 'cube'; }
+        else { state.colorModels.perchannel = loadCalibration(calib); state.colorChoice = 'perchannel'; }
       } catch { alert('That JSON does not look like a calibration file.'); return; }
       state.filmType = type;
       document.querySelector(`input[name="film-type"][value="${type}"]`).checked = true;
+      if (type === 'color') syncColorModelRadio();
       calibStatus.textContent = `Loaded ${type === 'bw' ? 'B&W' : is3d ? '3D color' : 'color'} calibration: ${file.name}`;
       refreshModeUI();
       refreshPreviews();

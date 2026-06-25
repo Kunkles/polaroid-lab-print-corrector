@@ -290,6 +290,18 @@ footer p {
   max-width: 80ch;
 }
 
+.mini-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  font-size: 0.72rem;
+  color: var(--text-dim);
+  margin-bottom: 0.5rem;
+}
+
+.mini-toggle label { cursor: pointer; }
+.mini-toggle input { accent-color: var(--accent); margin-right: 0.2rem; vertical-align: middle; }
+
 @media (max-width: 1000px) {
   /* narrow: previews on top but not pinned (a 2x2 grid is too tall to pin) */
   #views { grid-template-columns: 1fr 1fr; position: static; }
