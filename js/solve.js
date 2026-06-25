@@ -306,45 +306,61 @@ function buildCubeForward(pairs, { smooth = 0.15 } = {}) {
   return { size: N, data: out };
 }
 
-/* Solve (JtJ + lambda*I) ds = Jt e  — a Levenberg-damped Gauss-Newton step,
-   robust when J is singular (flat / clipped regions of the film response). */
-function dampedSolve3(J, e, lambda = 1e-4) {
-  const A = [[0, 0, 0], [0, 0, 0], [0, 0, 0]], rhs = [0, 0, 0];
-  for (let r = 0; r < 3; r++) {
-    for (let c = 0; c < 3; c++) {
-      let s = 0; for (let k = 0; k < 3; k++) s += J[k][r] * J[k][c];
-      A[r][c] = s + (r === c ? lambda : 0);
-    }
-    let s = 0; for (let k = 0; k < 3; k++) s += J[k][r] * e[k];
-    rhs[r] = s;
-  }
-  return gauss(A, rhs);
-}
-
 /* Invert the forward LUT at a single target t: find input s with F(s)=t.
-   Newton with a finite-difference Jacobian, clamped to the cube. */
+
+   Diagonal-damped fixed-point rather than full 3x3 Newton: each channel is
+   nudged by its own residual divided by its own sensitivity (∂F_c/∂s_c, clamped
+   away from zero). Cross-channel crosstalk is resolved by iterating, not by
+   inverting a 3x3 Jacobian — a near-singular Jacobian there sends full Newton to
+   wrong, wildly-coloured solutions (the cause of the neon corrections). This
+   stays near the identity-seeded path and is bounded by the [0,1] clamp, so the
+   worst case is under-correction, never garbage. */
 function invertCubeAt(forward, t, seed) {
   const s = (seed || t).slice();
   for (let c = 0; c < 3; c++) s[c] = clamp01(s[c]);
-  for (let it = 0; it < 12; it++) {
+  const h = 0.02, gain = 0.8;
+  for (let it = 0; it < 30; it++) {
     const f = sampleLut(forward, s[0], s[1], s[2]);
     const e = [t[0] - f[0], t[1] - f[1], t[2] - f[2]];
-    if (Math.abs(e[0]) + Math.abs(e[1]) + Math.abs(e[2]) < 3e-4) break;
-    const h = 1e-3, J = [[0, 0, 0], [0, 0, 0], [0, 0, 0]];
+    if (Math.abs(e[0]) + Math.abs(e[1]) + Math.abs(e[2]) < 2e-4) break;
     for (let c = 0; c < 3; c++) {
-      const sp = s.slice(); sp[c] = clamp01(sp[c] + h);
+      const sp = s.slice();
+      sp[c] = clamp01(sp[c] + h);
       const hh = sp[c] - s[c] || h;
-      const fp = sampleLut(forward, sp[0], sp[1], sp[2]);
-      for (let r = 0; r < 3; r++) J[r][c] = (fp[r] - f[r]) / hh;
+      const slope = (sampleLut(forward, sp[0], sp[1], sp[2])[c] - f[c]) / hh;
+      s[c] = clamp01(s[c] + gain * e[c] / Math.max(slope, 0.25));
     }
-    const ds = dampedSolve3(J, e);
-    for (let c = 0; c < 3; c++) s[c] = clamp01(s[c] + ds[c]);
   }
   return s;
 }
 
+/* Light 6-neighbour blur over a 3D LUT — evens out residual unevenness from the
+   per-node inversion so the correction is continuous (no banding). */
+function smoothLut(data, N, w, passes) {
+  const idx = (r, g, b) => 3 * (r + N * (g + N * b));
+  const nb = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]];
+  let cur = data;
+  for (let p = 0; p < passes; p++) {
+    const out = cur.slice();
+    for (let b = 0; b < N; b++) for (let g = 0; g < N; g++) for (let r = 0; r < N; r++) {
+      const o = idx(r, g, b);
+      for (let c = 0; c < 3; c++) {
+        let sum = 0, cnt = 0;
+        for (const [dr, dg, db] of nb) {
+          const rr = r + dr, gg = g + dg, bb = b + db;
+          if (rr < 0 || rr >= N || gg < 0 || gg >= N || bb < 0 || bb >= N) continue;
+          sum += cur[idx(rr, gg, bb) + c]; cnt++;
+        }
+        out[o + c] = cnt ? (1 - w) * cur[o + c] + w * (sum / cnt) : cur[o + c];
+      }
+    }
+    cur = out;
+  }
+  return cur;
+}
+
 /* Build the correction LUT by inverting the forward map at every node, warm-
-   starting along r for speed + continuity. */
+   starting along r for speed + continuity, then lightly smoothing. */
 function buildCubeCorrectionLut(forward, size = LUT_SIZE) {
   const data = new Float32Array(size * size * size * 3);
   let i = 0;
@@ -357,7 +373,7 @@ function buildCubeCorrectionLut(forward, size = LUT_SIZE) {
       data[i++] = s[0]; data[i++] = s[1]; data[i++] = s[2];
     }
   }
-  return { size, data };
+  return { size, data: smoothLut(data, size, 0.3, 2) };
 }
 
 /* Same interface as loadCalibration: correct / predictPrint(Raw). */
