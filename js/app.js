@@ -215,9 +215,10 @@
       })
       .catch(() => {});
   }
-  // Color defaults to the measured 3D cube calibration (best saturated-color
-  // accuracy); the per-channel calibration-color.json stays loadable by hand.
-  loadCalib('charts/calibration-color-cube.json', 'color', loadColorCubeCalibration);
+  // Color defaults to the per-channel calibration. (The 3D cube calibration
+  // fits well but its numeric inverse is currently unstable on real data —
+  // produces wild colors — so it's not the default until that's fixed.)
+  loadCalib('charts/calibration-color.json', 'color', loadCalibration);
   loadCalib('charts/calibration-bw.json', 'bw', loadBWCalibration);
 
   refreshModeUI();
