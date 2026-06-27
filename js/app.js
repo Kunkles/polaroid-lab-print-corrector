@@ -10,7 +10,7 @@
     params: { ...NEUTRAL },  // manual tweaks ride on top of the measured calibration
     filmType: 'color',      // 'color' | 'bw'
     colorModels: { cube: null, perchannel: null }, // both color calibrations
-    colorChoice: 'cube',    // which color model is active ('cube' | 'perchannel')
+    colorChoice: 'perchannel', // active color model ('cube' | 'perchannel')
     measuredBW: null,       // loaded B&W calibration model, if any
     useMeasured: true,      // always use the measured calibration when available
     unlockManual: true,     // manual tweak sliders are always live
