@@ -224,7 +224,7 @@
   }
 
   function loadCalib(url, apply) {
-    return fetch(url)
+    return fetch(`${url}?v=${APP_VERSION}`) // cache-bust so calibration updates take effect
       .then((r) => (r.ok ? r.json() : null))
       .then((calib) => {
         if (!calib) return;
