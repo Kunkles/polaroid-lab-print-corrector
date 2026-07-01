@@ -5,9 +5,12 @@
   const EXPORT_MAX = 3000;   // px, cap for the corrected full-res export
 
   const NEUTRAL = { exposure: 0, shadowLift: 0, highlightComp: 0, contrast: 0, saturation: 1, temp: 0, tint: 0 };
+  // The Lab consistently prints dark, so the default carries an exposure lift
+  // (validated on real prints — a +0.8 grade printed best). Users adjust freely.
+  const DEFAULTS = { ...NEUTRAL, exposure: 0.8 };
 
   const state = {
-    params: { ...NEUTRAL },  // manual tweaks ride on top of the measured calibration
+    params: { ...DEFAULTS },  // manual tweaks ride on top of the measured calibration
     filmType: 'color',      // 'color' | 'bw'
     colorModels: { cube: null, perchannel: null }, // both color calibrations
     colorChoice: 'perchannel', // active color model ('cube' | 'perchannel')
@@ -146,7 +149,7 @@
     queueRender();
   }
 
-  document.getElementById('btn-reset').addEventListener('click', () => setParams(NEUTRAL));
+  document.getElementById('btn-reset').addEventListener('click', () => setParams(DEFAULTS));
 
   function updateSliderEnabled() {
     const live = slidersLive();
