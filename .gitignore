@@ -17,8 +17,9 @@ charts/*
 !charts/calibration-color-cube.json
 !charts/calibration-bw.json
 
-# Local rescans for calibration re-checks — keep out of the public repo.
+# Local rescans / test shots for calibration re-checks — keep out of the public repo.
 CartsRescanned/
+newtest/
 
 # Tooling / OS / local config
 node_modules/
